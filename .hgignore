@@ -4,6 +4,7 @@ syntax: glob
 cscope*
 *.tags
 *.workspace*
+fstest
 
 # build directory
 build/*
