@@ -26,9 +26,9 @@
 
 #include "fstest.h"
 
-int size_min = 20; // 1MiB
-int size_max = 30; // 1GiB
-int stats_interval = 60;
+static int size_min = 20; // 1MiB
+static int size_max = 30; // 1GiB
+static int stats_interval = 60;
 //int size_max = 35; // 32GiB
 //int stats_interval = 900;
 
