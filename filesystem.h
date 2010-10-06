@@ -24,47 +24,40 @@
  *
  ************************************************************************/
 
-#ifndef __FSTEST_H__
-#define __FSTEST_H__
+#ifndef __FILESYSTEM_H__
+#define __FILESYSTEM_H__
 
-using namespace std;
+struct StatsStamp {
+	time_t time;
+	uint64_t write, read, num_files;
+};
 
-#include <unistd.h>
-#include <getopt.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdio.h>
-#include <errno.h>
-#include <sys/statvfs.h>
-#include <stdint.h>
-#include <time.h>
-#include <fcntl.h>
-
-#include <iostream>
-#include <sstream>
-#include <cassert>
-#include <vector>
-#include <cstring>
-#include <stdint.h>
-
-#include "dir.h"
-#include "file.h"
-#include "filesystem.h"
-
-
-static int do_exit(const char* func, unsigned line, int code)
+class Filesystem 
 {
-	fprintf(stderr, "%s:%d Exit code %d\n", func, line, code);
-	exit(code);
-}
+private:
+	Dir *root_dir;
 
-#define EXIT(x) do_exit(__func__, __LINE__, x)
+	uint64_t fssize;
+	uint64_t fsfree;
+	uint64_t goal;
+	double goal_percent;
+	bool was_full;
 
-static const uint64_t MEGA = 1024 * 1024;
-static const uint64_t GIGA = 1024 * 1024 * 1024;
+	
+	StatsStamp stats_old;
+	StatsStamp stats_now;
+	
+	void update_stats(void);
+	void free_space(size_t fsize);
+public:
+	Filesystem(string dir, double percent);
+	~Filesystem(void);
+	void write(void);
+	
+	// Global options
+	vector<Dir*> all_dirs;
+	vector<Dir*> active_dirs;
+	vector<File*> files;
+};
 
-
-
-
-#endif // __FS_TEST_H__
+#endif // __FILESYSTEM_H__

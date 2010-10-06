@@ -83,6 +83,8 @@ retry:
 	}
 
 	fdatasync(fd);
+	// Try to remove pages from memory to let the kernel re-read the file
+	// on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 	close(fd);
 	directory->fs->files.push_back(this);
@@ -138,10 +140,13 @@ void File::check(void)
 		perror(": ");
 		EXIT(1);
 	}
-	// Don't call it, as we want to create some cache pressure to stress
-	// the VFS
-	// posix_fadvise(fd,0 ,0, POSIX_FADV_NOREUSE);
-	// Create buffer and fill with id
+
+	// Do not keep the pages in memory, later checks then have to re-read it.
+	// Disadvantage is that we do not create memory pressure then, which is
+	// usually good to stress test filesystems
+	posix_fadvise(fd, 0 ,0, POSIX_FADV_NOREUSE);
+
+	//Create buffer and fill with id
 	char bufm[BUF_SIZE];
 	char buff[BUF_SIZE];
 	((uint32_t*)bufm)[0] = id;
@@ -182,6 +187,11 @@ void File::check(void)
 			EXIT (1);
 		}
 	}
+
+	// Try to remove pages from memory to let the kernel re-read the file
+	// on later reads
+	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+
 	close(fd);
 }
 
