@@ -119,17 +119,27 @@ void Filesystem::free_space(size_t fsize)
 		} else {
 			was_full = true;
 		}
+		
 		// Remove some files
+
 		if (files.size() == 0)
 			break; // no files left to delete
-
+			
+		// FIXME: Why is files.size() already locked?
+		// There is a deadlock, if lock() is moved above that!
+		this->lock();
+		
 		// FIXME: Need to protect this file from now on...
 		int num = random() % this->files.size();
 		files[num]->check(); // check the file before we delete it
 		stats_now.read += files[num]->get_fsize();
+		
+		this->unlock();
+
 		delete files[num];
 		files[num] = files[files.size() - 1];
 		files.resize(files.size() - 1);
+
 	}
 }
 
@@ -205,6 +215,7 @@ void Filesystem::write(void)
 		this->unlock();
 	}
 }
+
 
 void Filesystem::lock(void)
 {

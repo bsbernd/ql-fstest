@@ -53,9 +53,6 @@ private:
 	
 	// protect file and directory addition/removal and stats
 	pthread_mutex_t mutex;
-	void lock(void);
-	void unlock(void);
-	int  trylock(void);
 public:
 	Filesystem(string dir, double percent);
 	~Filesystem(void);
@@ -65,6 +62,10 @@ public:
 	vector<Dir*> all_dirs;
 	vector<Dir*> active_dirs;
 	vector<File*> files;
+
+	void lock(void);
+	void unlock(void);
+	int  trylock(void);
 };
 
 #endif // __FILESYSTEM_H__

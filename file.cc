@@ -91,7 +91,9 @@ retry:
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 	close(fd);
 	
+	directory->fs->lock();
 	directory->fs->files.push_back(this);
+	directory->fs->unlock();
 }
 
 File::~File(void)
