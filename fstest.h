@@ -64,7 +64,4 @@ static int do_exit(const char* func, unsigned line, int code)
 static const uint64_t MEGA = 1024 * 1024;
 static const uint64_t GIGA = 1024 * 1024 * 1024;
 
-
-
-
 #endif // __FS_TEST_H__

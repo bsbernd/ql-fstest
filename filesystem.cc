@@ -93,10 +93,10 @@ void Filesystem::update_stats(void)
  */
 void Filesystem::free_space(size_t fsize)
 {
-	// Check space
 	while(true)
 	{
 		struct statvfs vfsbuf;
+		
 		if (statvfs(root_dir->path().c_str(), &vfsbuf) != 0) {
 			perror("statvfs()");
 			EXIT(1);
@@ -115,8 +115,9 @@ void Filesystem::free_space(size_t fsize)
 		// Remove some files
 		if (files.size() == 0)
 			break; // no files left to delete
-		int num = random() % files.size();
-		files[num]->check();
+		
+		int num = random() % this->files.size();
+		files[num]->check(); // check the file before we delete it
 		stats_now.read += files[num]->get_fsize();
 		delete files[num];
 		files[num] = files[files.size() - 1];
@@ -142,6 +143,8 @@ void Filesystem::write(void)
 		size_t fsize = 1ULL << (size_min + random() % (size_max - size_min + 1));
 		// cout << "Size: " << size << endl;
 
+		// free some space by deleting a file,
+		// also last chance to check this file
 		this->free_space(fsize);
 
 		// Pick a random directory

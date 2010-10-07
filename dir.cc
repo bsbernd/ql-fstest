@@ -118,7 +118,8 @@ void Dir::add_file(File *file)
 void Dir::remove_file(File *file)
 {
 	num_files--;
-	if (files == file) files = files->get_next();
+	if (files == file) 
+		files = files->get_next();
 	file->unlink();
 }
 
