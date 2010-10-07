@@ -38,6 +38,10 @@ File::File(Dir *dir, uint64_t num)
 	prev = NULL;
 	next = NULL;
 	fsize = num;
+	pthread_mutex_init(&this->mutex, NULL);
+	
+	// No need to lock the file here, as it is not globally known yet 
+	// Initialization is just suffcient
 	
 	int fd;
 
@@ -47,7 +51,6 @@ File::File(Dir *dir, uint64_t num)
 	// Create file
 retry:
 	id = random();
-	cout << "id: " << id << " Char: ";
 	snprintf(fname, 9, "%x", id);
 
 	fd = open((path + fname).c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
@@ -84,14 +87,16 @@ retry:
 
 	fdatasync(fd);
 	// Try to remove pages from memory to let the kernel re-read the file
-	// on later reads
+	// from disk on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 	close(fd);
+	
 	directory->fs->files.push_back(this);
 }
 
 File::~File(void)
 {
+	this->lock();
 	// std::cout << "~File(" << dir->path() + fname << ")\n";
 	// Remove from dir
 	directory->remove_file(this);
@@ -102,6 +107,8 @@ File::~File(void)
 		perror(": ");
 		EXIT(1);
 	}
+	this->unlock();
+	pthread_mutex_destroy(&this->mutex);
 }
 
 void File::delete_all(void)
@@ -133,6 +140,7 @@ void File::unlink()
 
 void File::check(void)
 {
+	this->lock();
 	int fd;
 	// Open file
 	if ((fd = open((directory->path() + fname).c_str(), O_RDONLY)) == -1) {
@@ -193,6 +201,7 @@ void File::check(void)
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 
 	close(fd);
+	this->unlock();
 }
 
 File * File::get_next() const
@@ -203,5 +212,36 @@ File * File::get_next() const
 size_t File::get_fsize() const
 {
 	return fsize;
+}
+
+void File::lock(void)
+{
+	int rc = pthread_mutex_lock(&this->mutex);
+	if (rc) {
+		cerr << "Failed to lock " << this->fname << " : " << strerror(rc);
+		perror(": ");
+		EXIT(1);
+	}
+}
+
+void File::unlock(void)
+{
+	int rc = pthread_mutex_unlock(&this->mutex);
+	if (rc) {
+		cerr << "Failed to lock " << this->fname << " : " << strerror(rc);
+		perror(": ");
+		EXIT(1);
+	}
+}
+
+int File::trylock(void)
+{
+	int rc = pthread_mutex_unlock(&this->mutex);
+	if (rc != EBUSY) {
+		cerr << "Failed to lock " << this->fname << " : " << strerror(rc);
+		perror(": ");
+		EXIT(1);
+	}
+	return rc;
 }
 

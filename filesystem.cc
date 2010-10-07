@@ -38,6 +38,7 @@ using namespace std;
 Filesystem::Filesystem(string dir, double percent)
 {
 	goal_percent = percent;
+	pthread_mutex_init(&this->mutex, NULL);
 	
 	// Create working dir
 	root_dir = new Dir(dir, this);
@@ -64,10 +65,13 @@ Filesystem::Filesystem(string dir, double percent)
 
 Filesystem::~Filesystem(void)
 {
+	this->lock();
 	if (root_dir != NULL) {
 		delete root_dir;
 		root_dir = NULL;
 	}
+	this->unlock();
+	pthread_mutex_destroy(&this->mutex);
 }
 
 
@@ -75,6 +79,7 @@ Filesystem::~Filesystem(void)
 /* Update statistics about this filesystem */
 void Filesystem::update_stats(void)
 {
+	this->lock();
 	struct statvfs statvfsbuf;
 
 	// Get FS stats
@@ -85,6 +90,8 @@ void Filesystem::update_stats(void)
 
 	fssize = statvfsbuf.f_blocks * statvfsbuf.f_frsize;
 	fsfree = statvfsbuf.f_bavail * statvfsbuf.f_frsize;
+
+	this->unlock();
 }
 
 
@@ -115,7 +122,8 @@ void Filesystem::free_space(size_t fsize)
 		// Remove some files
 		if (files.size() == 0)
 			break; // no files left to delete
-		
+
+		// FIXME: Need to protect this file from now on...
 		int num = random() % this->files.size();
 		files[num]->check(); // check the file before we delete it
 		stats_now.read += files[num]->get_fsize();
@@ -189,3 +197,35 @@ void Filesystem::write(void)
 		}
 	}
 }
+
+void Filesystem::lock(void)
+{
+	int rc = pthread_mutex_lock(&this->mutex);
+	if (rc) {
+		cerr << "Failed to lock filesystem" << " : " << strerror(rc);
+		perror(": ");
+		EXIT(1);
+	}
+}
+
+void Filesystem::unlock(void)
+{
+	int rc = pthread_mutex_unlock(&this->mutex);
+	if (rc) {
+		cerr << "Failed to lock filesystem" << " : " << strerror(rc);
+		perror(": ");
+		EXIT(1);
+	}
+}
+
+int Filesystem::trylock(void)
+{
+	int rc = pthread_mutex_unlock(&this->mutex);
+	if (rc != EBUSY) {
+		cerr << "Failed to lock filesystem" << " : " << strerror(rc);
+		perror(": ");
+		EXIT(1);
+	}
+	return rc;
+}
+

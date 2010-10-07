@@ -40,6 +40,7 @@ using namespace std;
 #include <stdint.h>
 #include <time.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #include <iostream>
 #include <sstream>

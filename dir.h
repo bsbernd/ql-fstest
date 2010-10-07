@@ -42,6 +42,7 @@ private:
 	string dirname;
 	uint16_t num_files;
 	string root_path;
+	pthread_mutex_t *mutex;
 public:
 	Filesystem *fs;
 	Dir(Dir *parent, int num);

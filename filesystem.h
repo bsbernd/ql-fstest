@@ -24,6 +24,8 @@
  *
  ************************************************************************/
 
+#include <pthread.h>
+
 #ifndef __FILESYSTEM_H__
 #define __FILESYSTEM_H__
 
@@ -42,13 +44,18 @@ private:
 	uint64_t goal;
 	double goal_percent;
 	bool was_full;
-
 	
 	StatsStamp stats_old;
 	StatsStamp stats_now;
 	
 	void update_stats(void);
 	void free_space(size_t fsize);
+	
+	// protect file and directory addition/removal and stats
+	pthread_mutex_t mutex;
+	void lock(void);
+	void unlock(void);
+	int  trylock(void);
 public:
 	Filesystem(string dir, double percent);
 	~Filesystem(void);

@@ -38,6 +38,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <fcntl.h>
+#include <pthread.h>
 
 #include <iostream>
 #include <sstream>
@@ -51,8 +52,9 @@ private:
 	Dir *directory;
 	File *prev, *next;
 	size_t fsize; // the file size 
-	uint32_t id;
+	uint32_t id;  // checksum pattern
 	char fname[9]; // file name
+	pthread_mutex_t mutex;
 public:
 	File(Dir *dir, uint64_t num);
 
@@ -63,10 +65,12 @@ public:
 	void link(File *file);
 	void unlink(void);
 	void check(void);
+	void lock(void);
+	void unlock(void);
+	int  trylock(void);
 	
 	File *get_next(void) const;
 	size_t get_fsize(void) const;
-
 };
 
 #endif // __FILE_H__
