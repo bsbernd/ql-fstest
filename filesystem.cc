@@ -161,6 +161,13 @@ void Filesystem::write(void)
 
 		// Create file
 		new File(active_dirs[num], fsize);
+		
+		// FIXME: Don't write the file in the constructor, just
+		// create the file there. We need to protect file creation and
+		// and the linked list, but we do not care about the file
+		// when it is written. So the lock here is not complete
+		this->lock();
+		
 		stats_now.write += fsize;
 		stats_now.num_files++;
 		// cout << "dir->num_files: " << active_dirs[num]->fsize() << endl;
@@ -195,6 +202,7 @@ void Filesystem::write(void)
 			cout.flush();
 			stats_old = stats_now;
 		}
+		this->unlock();
 	}
 }
 
