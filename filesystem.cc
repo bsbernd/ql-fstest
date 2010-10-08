@@ -28,7 +28,7 @@
 #include "fstest.h"
 
 static int size_min = 20; // 1MiB
-static int size_max = 22; // 1GiB
+static int size_max = 30; // 1GiB
 static int stats_interval = 60;
 //int size_max = 35; // 32GiB
 //int stats_interval = 900;
@@ -44,6 +44,7 @@ Filesystem::Filesystem(string dir, double percent)
 	
 	// Create working dir
 	root_dir = new Dir(dir, this);
+	memset(&stats_all, 0, sizeof(stats_all));
 	this->update_stats();
 
 	fs_use_goal = this->fssize * percent;
@@ -87,6 +88,13 @@ void Filesystem::update_stats(void)
 
 	fssize = statvfsbuf.f_blocks * statvfsbuf.f_frsize;
 	fsfree = statvfsbuf.f_bavail * statvfsbuf.f_frsize;
+	
+	// TODO:  overload an op?*
+	this->stats_all.read += this->stats_now.read;
+	this->stats_all.write += this->stats_now.write;
+	this->stats_all.num_files += this->stats_now.num_files;
+	this->stats_all.num_read_files += this->stats_now.num_read_files;
+	this->stats_all.num_written_files += this->stats_now.num_written_files;
 	
 	memset(&stats_old, 0, sizeof(stats_old));
 	memset(&stats_now, 0, sizeof(stats_now));
@@ -215,15 +223,16 @@ void Filesystem::write(void)
 		file->unlock();
 		
 		this->lock();
-		stats_now.write += fsize;
-		stats_now.num_files++;
+		this->stats_now.write += fsize;
+		this->stats_now.num_files++;
+		this->stats_now.num_written_files++;
 		// cout << "dir->num_files: " << active_dirs[num]->fsize() << endl;
 		// cout << "files: " << files.size() << endl;
 
 		// Remove dir from active_dirs if full
 		if (active_dirs[num]->get_num_files() >= max_files) {
-			active_dirs[num] = active_dirs[active_dirs.size() - 1];
-			active_dirs.resize(active_dirs.size() - 1);
+			this->active_dirs[num] = this->active_dirs[active_dirs.size() - 1];
+			this->active_dirs.resize(this->active_dirs.size() - 1);
 		}
 
 		if (active_dirs.size() == 0) {
@@ -250,6 +259,12 @@ void Filesystem::write(void)
 			this->update_stats();
 		}
 		this->unlock();
+		
+		// Some filesystems prefer writes over reads. But we don't want
+		// to let the reads to fall too far behind. Use arbitrary limit
+		// of 20 files
+		while  (this->stats_now.num_written_files > this->stats_now.num_read_files + 20)
+			sleep(1);
 	}
 }
 
@@ -293,7 +308,9 @@ start_again:
 		file->unlock();
 
 		this->lock();
+		this->last_read_index = index;
 		this->stats_now.read += fsize;
+		this->stats_now.num_read_files++;
 		this->unlock();
 		index++;
 newindex:

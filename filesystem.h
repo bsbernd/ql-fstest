@@ -32,7 +32,8 @@
 
 struct StatsStamp {
 	time_t time;
-	uint64_t write, read, num_files;
+	uint64_t write, read;
+	uint64_t num_files, num_read_files, num_written_files;
 };
 
 class Filesystem 
@@ -45,9 +46,11 @@ private:
 	uint64_t fs_use_goal;
 	double goal_percent;
 	bool was_full;
+	int last_read_index; // last index read in
 	
 	StatsStamp stats_old;
 	StatsStamp stats_now;
+	StatsStamp stats_all;
 	
 	void update_stats(void);
 	void free_space(size_t fsize);
