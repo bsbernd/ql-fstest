@@ -50,7 +50,7 @@ private:
 	
 	void update_stats(void);
 	void free_space(size_t fsize);
-	
+		
 	// protect file and directory addition/removal and stats
 	pthread_mutex_t mutex;
 public:

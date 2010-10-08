@@ -54,13 +54,13 @@ using namespace std;
 #include "filesystem.h"
 
 
-static int do_exit(const char* func, unsigned line, int code)
+static int do_exit(const char* func, const char *file, unsigned line, int code)
 {
-	fprintf(stderr, "%s:%d Exit code %d\n", func, line, code);
+	fprintf(stderr, "%s() %s:%d Exit code %d\n", func, file, line, code);
 	exit(code);
 }
 
-#define EXIT(x) do_exit(__func__, __LINE__, x)
+#define EXIT(x) do_exit(__func__, __FILE__, __LINE__, x)
 
 static const uint64_t MEGA = 1024 * 1024;
 static const uint64_t GIGA = 1024 * 1024 * 1024;

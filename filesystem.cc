@@ -56,11 +56,6 @@ Filesystem::Filesystem(string dir, double percent)
 		EXIT(1);
 	}
 	
-	memset(&stats_old, 0, sizeof(stats_old));
-	memset(&stats_now, 0, sizeof(stats_now));
-	
-	stats_old.time = time(NULL);
-	stats_now.time = time(NULL);
 	
 	was_full = false;
 }
@@ -76,12 +71,10 @@ Filesystem::~Filesystem(void)
 	pthread_mutex_destroy(&this->mutex);
 }
 
-
-
-/* Update statistics about this filesystem */
+/* Update statistics about this filesystem 
+ * Filesystem has to be locked */
 void Filesystem::update_stats(void)
 {
-	this->lock();
 	struct statvfs statvfsbuf;
 
 	// Get FS stats
@@ -92,8 +85,12 @@ void Filesystem::update_stats(void)
 
 	fssize = statvfsbuf.f_blocks * statvfsbuf.f_frsize;
 	fsfree = statvfsbuf.f_bavail * statvfsbuf.f_frsize;
-
-	this->unlock();
+	
+	memset(&stats_old, 0, sizeof(stats_old));
+	memset(&stats_now, 0, sizeof(stats_now));
+	
+	stats_old.time = time(NULL);
+	stats_now.time = time(NULL);
 }
 
 
@@ -141,32 +138,34 @@ retry:
 			else
 				return;
 		}
+		this->unlock();
 		
 		string fname = file->fname;
 		int nchecks = file->num_checks;
-		
-		// file->check();
-		
-		file->unlock();
-		
+				
 		if (nchecks == 0) {
+			file->unlock();
 			if (this->files.size() > 2) {
 #ifdef DEBUG
 				cerr << fname
 					<< " num_checks: "
 					<< nchecks << endl;
 #endif
-				this->unlock();
 				sleep(1);
 				goto retry; // try another file
 			} else {
 				// We need more files before we can delete one
-				this->unlock();
 				return;
 			}
 		}
-					
-		delete file;
+		
+		if (nchecks < 3) {
+			// check the file a last time
+			file->check();
+		}
+		
+		this->lock();
+		delete file; // will also unlock the file
 		files[num] = files[files.size() - 1];
 		files.resize(files.size() - 1);
 		this->unlock();
@@ -239,7 +238,7 @@ void Filesystem::write(void)
 				<< " [" << files << " files/s] # " << ctime(&stats_now.time);
 			
 			cout.flush();
-			stats_old = stats_now;
+			this->update_stats();
 		}
 		this->unlock();
 	}
@@ -270,7 +269,6 @@ start_again:
 		this->unlock();
 	}
 	
-	
 	File *file = this->files.at(index);
 	// now lock the file, still a chance of a race, until the unlink()
 	// methods also lock the filesystem first -> FIXME
@@ -281,11 +279,13 @@ start_again:
 		// file is locked here
 		
 		file->check();
+		int fsize = file->get_fsize();
+		file->unlock();
+
 		this->lock();
-		this->stats_now.read += file->get_fsize();
+		this->stats_now.read += fsize;
 		this->unlock();
 		index++;
-		
 newindex:
 		this->lock();
 		unsigned long current_num_files = this->files.size();
@@ -294,7 +294,8 @@ newindex:
 			// last file, restart from beginning
 			if (!this->was_full)
 				sleep(20); // give it some time to write new data
-			cout << "Starting to read from index 0" << endl;
+			cout << "Re-starting to read from index 0 (was "
+				<< index << ")" << endl;
 			index = 0;
 			goto newindex;
 		}
@@ -306,9 +307,14 @@ newindex:
 			continue; // re-read the current file
 		}
 		
-		tmp->lock();
+		if (tmp->trylock()) {
+			this->unlock();
+			// file is busy, take next file
+			index++;
+			goto newindex;
+		}
+
 		this->unlock();
-		file->unlock();
 		file = tmp;
 	}
 	

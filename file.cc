@@ -114,10 +114,14 @@ void File::fwrite(void)
 }
 
 
+/* file destructor - delete a file
+ * the filesystem has to be locked before calling this
+ */
 File::~File(void)
 {
-	this->lock();
-	// std::cout << "~File(" << dir->path() + fname << ")\n";
+#ifdef DEBUG
+	cout << "~File(" << this->directory->path() + this->fname << ")\n";
+#endif
 	// Remove from dir
 	directory->remove_file(this);
 	// delete file
@@ -164,13 +168,17 @@ void File::unlink()
 void File::check(void)
 {
 #ifdef DEBUG
-	cerr << "Checking file " << this->fname << endl;
+	cerr << " Checking file " << this->directory->path() << this->fname << endl;
 #endif
+
+	if (this->trylock() != EBUSY)
+		cout << "Program error:  file is not locked " << this->fname << endl;
 	
 	int fd;
 	// Open file
-	if ((fd = open((directory->path() + fname).c_str(), O_RDONLY)) == -1) {
-		std::cerr << "Checking file " << directory->path() << fname;
+	fd = open((directory->path() + fname).c_str(), O_RDONLY);
+	if (fd == -1) {
+		std::cerr << " Checking file " << this->directory->path() << fname;
 		perror(": ");
 		EXIT(1);
 	}
