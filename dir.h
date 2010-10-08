@@ -6,6 +6,7 @@
 *          Bernd Schubert <bschubert@ddn.com>
   *
  * Copyright (C) 2007 Q-leap Networks, Goswin von Brederlow
+ *               2010 DataDirect Networks, Bernd Schubert
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
