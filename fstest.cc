@@ -172,7 +172,7 @@ int main(int argc, char * const argv[])
 		dir += "fstest." + str.str() + "/";
 	}
 
-	cout << "fstest v0.0\n";
+	cout << "fstest v0.1\n";
 	cout << "Directory           : " << ((dir=="")?"./":dir) << endl;
 	cout << "Goal percentage used: " << percent * 100 << endl;
 
