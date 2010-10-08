@@ -155,7 +155,8 @@ retry:
 		
 		string fname = file->fname;
 		int nchecks = file->num_checks;
-				
+			
+		// Check if read-thread already has verified it
 		if (nchecks == 0) {
 			file->unlock();
 			if (this->files.size() > 2) {
@@ -172,13 +173,11 @@ retry:
 			}
 		}
 		
-		if (nchecks < 3) {
-			// check the file a last time
-			if (file->check()) {
-				this->error_detected = true;
-				// we exit the write thread
-				pthread_exit(NULL);
-			}
+		// check the file a last time
+		if (nchecks < 3 && file->check()) {
+			this->error_detected = true;
+			// we exit the write thread
+			pthread_exit(NULL);
 		}
 		
 		this->lock();
