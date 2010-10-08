@@ -50,16 +50,18 @@ class File
 {
 private:
 	Dir *directory;
-	File *prev, *next;
+	File *prev, *next; // only per directory, not globally
 	size_t fsize; // the file size 
 	uint32_t id;  // checksum pattern
-	char fname[9]; // file name
 	pthread_mutex_t mutex;
+	
 public:
+	char fname[9]; // file name
 	File(Dir *dir, uint64_t num);
 
 	~File(void);
-	
+
+	void fwrite(void);
 	void delete_all(void);
 	
 	void link(File *file);
@@ -71,6 +73,8 @@ public:
 	
 	File *get_next(void) const;
 	size_t get_fsize(void) const;
+
+	int num_checks; // how often this file aready has been verified
 };
 
 #endif // __FILE_H__

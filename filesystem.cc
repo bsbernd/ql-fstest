@@ -43,6 +43,8 @@ Filesystem::Filesystem(string dir, double percent)
 	// Create working dir
 	root_dir = new Dir(dir, this);
 	this->update_stats();
+
+	fs_use_goal = this->fssize * percent;
 	
 	cout << "Filesystem size     : " << fssize << endl;
 	cout << "Filesystem free     : " << fsfree << endl;
@@ -100,46 +102,74 @@ void Filesystem::update_stats(void)
  */
 void Filesystem::free_space(size_t fsize)
 {
-	while(true)
+	struct statvfs vfsbuf;
+		
+	if (statvfs(root_dir->path().c_str(), &vfsbuf) != 0) {
+		perror("statvfs()");
+		EXIT(1);
+	}
+	uint64_t fsfree = vfsbuf.f_bavail * vfsbuf.f_frsize;
+
+	while(this->fssize - fsfree - fsize > this->fs_use_goal)
 	{
-		struct statvfs vfsbuf;
-		
-		if (statvfs(root_dir->path().c_str(), &vfsbuf) != 0) {
-			perror("statvfs()");
-			EXIT(1);
+		// Remove a file
+	
+		int retry_count = 0;
+retry:
+		while (this->trylock())
+			sleep(1);
+		int nfiles = files.size();
+		if (nfiles < 5) {
+			this->unlock();
+			return; // no files left to delete
 		}
-		uint64_t fsfree = vfsbuf.f_bavail * vfsbuf.f_frsize;
-		// cout << "Free: " << fsfree << endl;
-		// cout << "Goal: " << goal << endl;
-		// Enough free already?
-		if (fsize < fsfree && fsfree - fsize / 2 > goal) {
-			// remove 1 file in 2 untill the fs was full once
-			if (was_full || stats_now.num_files > files.size() * 2)
-				break;
-		} else {
-			was_full = true;
-		}
+		int num = random() % nfiles;
 		
-		// Remove some files
+		File *file = files[num];
 
-		if (files.size() == 0)
-			break; // no files left to delete
+		// Don't delete a file that is in read or not checked yet
+		// Our read loop does not like that
+		int rc = file->trylock();
+		if (rc && rc == EBUSY) {
+			// File probably just in read
+			this->unlock();
+			sleep(1);
+			retry_count++;
 			
-		// FIXME: Why is files.size() already locked?
-		// There is a deadlock, if lock() is moved above that!
-		this->lock();
+			if (retry_count < 10 && nfiles > 10)
+				goto retry;
+			else
+				return;
+		}
 		
-		// FIXME: Need to protect this file from now on...
-		int num = random() % this->files.size();
-		files[num]->check(); // check the file before we delete it
-		stats_now.read += files[num]->get_fsize();
+		string fname = file->fname;
+		int nchecks = file->num_checks;
 		
-		this->unlock();
-
-		delete files[num];
+		// file->check();
+		
+		file->unlock();
+		
+		if (nchecks == 0) {
+			if (this->files.size() > 2) {
+#ifdef DEBUG
+				cerr << fname
+					<< " num_checks: "
+					<< nchecks << endl;
+#endif
+				this->unlock();
+				sleep(1);
+				goto retry;
+			} else {
+				// We need more files before we can delete one
+				this->unlock();
+				return;
+			}
+		}
+					
+		delete file;
 		files[num] = files[files.size() - 1];
 		files.resize(files.size() - 1);
-
+		this->unlock();
 	}
 }
 
@@ -162,22 +192,21 @@ void Filesystem::write(void)
 		// cout << "Size: " << size << endl;
 
 		// free some space by deleting a file,
-		// also last chance to check this file
 		this->free_space(fsize);
 
 		// Pick a random directory
 		int num = random() % active_dirs.size();
 		// cout << "Picked " << active_dirs[num]->path() << endl;
 
-		// Create file
-		new File(active_dirs[num], fsize);
-		
-		// FIXME: Don't write the file in the constructor, just
-		// create the file there. We need to protect file creation and
-		// and the linked list, but we do not care about the file
-		// when it is written. So the lock here is not complete
 		this->lock();
+		// Create file
+		File *file = new File(active_dirs[num], fsize);
+		file->lock();
+		this->unlock();
+		file->fwrite();
+		file->unlock();
 		
+		this->lock();
 		stats_now.write += fsize;
 		stats_now.num_files++;
 		// cout << "dir->num_files: " << active_dirs[num]->fsize() << endl;
@@ -216,6 +245,72 @@ void Filesystem::write(void)
 	}
 }
 
+/* Read from the beginning to the end, if end is reached
+ * continue at the beginning
+ */
+void Filesystem::read_loop(void)
+{
+	unsigned long index = 0;
+start_again:
+	this->lock();
+	// wait until the 2nd file is being written
+	while (this->files.size() < 2) {
+		this->unlock();
+		pthread_yield();
+		sleep (1);
+		goto start_again;
+	}
+	
+#ifdef DEBUG
+	cerr << "Starting to read files" << endl;
+#endif
+	
+	if (this->files.size() < 2) {
+		// Arg, already deleted again!
+		this->unlock();
+	}
+	
+	
+	File *file = this->files.at(index);
+	// now lock the file, still a chance of a race, until the unlink()
+	// methods also lock the filesystem first -> FIXME
+	file->lock(); 
+	this->unlock();
+
+	while(true) {
+		// file is locked here
+		
+		file->check();
+		this->lock();
+		this->stats_now.read += file->get_fsize();
+		this->unlock();
+		index++;
+		
+		this->lock();
+		unsigned long current_num_files = this->files.size();
+		if (index >= current_num_files) {
+			// last file, restart from beginning
+			index = 0;
+		}
+		
+		File *tmp;
+		tmp = this->files.at(index);
+		if (tmp == file) {
+			this->unlock();
+			cerr << "cnum: " << current_num_files << " "
+				<< "index: " << index << endl;
+			continue; // re-read the current file
+		}
+		
+		tmp->lock();
+		this->unlock();
+		file->unlock();
+		file = tmp;
+	}
+	
+	
+}
+
 
 void Filesystem::lock(void)
 {
@@ -239,8 +334,8 @@ void Filesystem::unlock(void)
 
 int Filesystem::trylock(void)
 {
-	int rc = pthread_mutex_unlock(&this->mutex);
-	if (rc != EBUSY) {
+	int rc = pthread_mutex_trylock(&this->mutex);
+	if (rc && rc != EBUSY) {
 		cerr << "Failed to lock filesystem" << " : " << strerror(rc);
 		perror(": ");
 		EXIT(1);

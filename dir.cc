@@ -111,14 +111,14 @@ Dir::~Dir(void)
 void Dir::add_file(File *file)
 {
 	file->link(files);
-	files = file;
-	num_files++;
+	this->files = file;
+	this->num_files++;
 }
 
 void Dir::remove_file(File *file)
 {
-	num_files--;
-	if (files == file) 
+	this->num_files--;
+	if (this->files == file) 
 		files = files->get_next();
 	file->unlink();
 }

@@ -42,6 +42,56 @@ void usage(ostream &out)
 	
 }
 
+/* Start the write thread here */
+void *run_write_thread(void *arg)
+{
+	Filesystem* t =  (Filesystem *) arg;
+	t->write();
+	return NULL;
+}
+
+/* Start the write thread here */
+void *run_read_thread(void *arg)
+{
+	Filesystem* t =  (Filesystem *) arg;
+	t->read_loop();
+	return NULL;
+}
+
+
+void start_threads(string dir, double percent)
+{
+	Filesystem * filesystem = new Filesystem(dir, percent);
+	
+	int rc;
+	pthread_t threads[2];
+	// struct pthread_arg tinfo[2];
+	
+	
+	// FIXME: We need a pthread wrapper class, our current way is ugly
+	
+	int i = 0;
+	rc = pthread_create(&threads[i], NULL, run_write_thread, filesystem);
+	if (rc) {
+		cerr << "Failed to start thread " << i << ": " 
+			<< strerror(rc) << endl;
+		EXIT(1);
+	}
+	
+	i = 1;
+	rc = pthread_create(&threads[i], NULL, run_read_thread, filesystem);
+	if (rc) {
+		cerr << "Failed to start thread " << i << ": " 
+			<< strerror(rc) << endl;
+		EXIT(1);
+	}
+	
+	// Should never succeed.
+	// FIXME: Why can't the threads run completely in the background
+	// without a master threads (master exists)?
+	for (i = 0; i < 2; i++)
+		pthread_join(threads[0], NULL);
+}
 
 int main(int argc, char * const argv[])
 {
@@ -126,8 +176,7 @@ int main(int argc, char * const argv[])
 	cout << "Directory           : " << ((dir=="")?"./":dir) << endl;
 	cout << "Goal percentage used: " << percent * 100 << endl;
 
-	Filesystem * filesystem = new Filesystem(dir, percent);
-	filesystem->write();
+	start_threads(dir, percent);
 
 	cout << "Done.\n";
 	return 0;

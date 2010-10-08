@@ -32,32 +32,51 @@ const size_t BUF_SIZE = 1024*1024; // Must be power of 2
 
 using namespace std;
 
-File::File(Dir *dir, uint64_t num)
+File::File(Dir *dir, size_t fsize) : fsize(fsize)
 {
 	directory = dir;
 	prev = NULL;
 	next = NULL;
-	fsize = num;
+	num_checks = 0;
 	pthread_mutex_init(&this->mutex, NULL);
 	
 	// No need to lock the file here, as it is not globally known yet 
 	// Initialization is just suffcient
 	
 	int fd;
-
 	string path = dir->path();
 	
 	dir->add_file(this);
 	// Create file
 retry:
-	id = random();
+	this->id = random();
 	snprintf(fname, 9, "%x", id);
 
-	fd = open((path + fname).c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
+	fd = open((path + this->fname).c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
 	if (fd == -1) {
 		if (errno == EEXIST)
 			goto retry; // Try again with new name
 		std::cout << "Creating file " << path << fname;
+		perror(": ");
+		EXIT(1);
+	}
+	
+	close(fd);
+	
+	directory->fs->files.push_back(this);
+}
+
+/* Write a file here 
+ * file needs to be locked already 
+ */
+void File::fwrite(void)
+{
+	int fd;
+	string path = directory->path();
+
+	fd = open((path + this->fname).c_str(), O_WRONLY);
+	if (fd == -1) {
+		std::cout << "Writing file " << path << fname;
 		perror(": ");
 		EXIT(1);
 	}
@@ -71,11 +90,13 @@ retry:
 		s *= 2;
 	}
 	// write file
-	for(s = 0; s < fsize; s += BUF_SIZE) {
+	for(s = 0; s < this->fsize; s += BUF_SIZE) {
 		size_t offset = 0;
 		while(offset < BUF_SIZE) {
 			ssize_t len;
-			// std::cout << "Write " << path << fname << " at " << s << std::endl;
+#ifdef DEBUG
+			cout << "Write " << path << fname << " at " << s << std::endl;
+#endif
 			if ((len = write(fd, &buf[offset], BUF_SIZE - offset)) < 0) {
 				std::cerr << "Write to " << path << fname << " failed";
 				perror(": ");
@@ -90,11 +111,8 @@ retry:
 	// from disk on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 	close(fd);
-	
-	directory->fs->lock();
-	directory->fs->files.push_back(this);
-	directory->fs->unlock();
 }
+
 
 File::~File(void)
 {
@@ -140,9 +158,15 @@ void File::unlink()
 	prev = next = NULL;
 }
 
+/* check the file for corruption
+ * the file MUST be locked before calling this method
+ */
 void File::check(void)
 {
-	this->lock();
+#ifdef DEBUG
+	cerr << "Checking file " << this->fname << endl;
+#endif
+	
 	int fd;
 	// Open file
 	if ((fd = open((directory->path() + fname).c_str(), O_RDONLY)) == -1) {
@@ -203,12 +227,13 @@ void File::check(void)
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 
 	close(fd);
-	this->unlock();
+	
+	this->num_checks++;
 }
 
 File * File::get_next() const
 {
-	return next;
+	return this->next;
 }
 
 size_t File::get_fsize() const
@@ -238,8 +263,8 @@ void File::unlock(void)
 
 int File::trylock(void)
 {
-	int rc = pthread_mutex_unlock(&this->mutex);
-	if (rc != EBUSY) {
+	int rc = pthread_mutex_trylock(&this->mutex);
+	if (rc && rc != EBUSY) {
 		cerr << "Failed to lock " << this->fname << " : " << strerror(rc);
 		perror(": ");
 		EXIT(1);

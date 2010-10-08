@@ -41,7 +41,7 @@ private:
 
 	uint64_t fssize;
 	uint64_t fsfree;
-	uint64_t goal;
+	uint64_t fs_use_goal;
 	double goal_percent;
 	bool was_full;
 	
@@ -56,7 +56,9 @@ private:
 public:
 	Filesystem(string dir, double percent);
 	~Filesystem(void);
+	
 	void write(void);
+	void read_loop(void);
 	
 	// Global options
 	vector<Dir*> all_dirs;
