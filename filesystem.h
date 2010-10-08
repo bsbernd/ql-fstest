@@ -50,6 +50,8 @@ private:
 	
 	void update_stats(void);
 	void free_space(size_t fsize);
+	
+	volatile bool error_detected;
 		
 	// protect file and directory addition/removal and stats
 	pthread_mutex_t mutex;

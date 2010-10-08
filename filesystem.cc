@@ -37,8 +37,9 @@ using namespace std;
 /* filesystem constructor */
 Filesystem::Filesystem(string dir, double percent)
 {
-	goal_percent = percent;
+	this->goal_percent = percent;
 	pthread_mutex_init(&this->mutex, NULL);
+	this->error_detected = false;
 	
 	// Create working dir
 	root_dir = new Dir(dir, this);
@@ -63,7 +64,7 @@ Filesystem::Filesystem(string dir, double percent)
 Filesystem::~Filesystem(void)
 {
 	this->lock();
-	if (root_dir != NULL) {
+	if (this->root_dir != NULL && !this->error_detected) {
 		delete root_dir;
 		root_dir = NULL;
 	}
@@ -99,6 +100,9 @@ void Filesystem::update_stats(void)
  */
 void Filesystem::free_space(size_t fsize)
 {
+	if (this->error_detected)
+		pthread_exit(NULL); // Don't delete anything, just exit now
+	
 	struct statvfs vfsbuf;
 		
 	if (statvfs(root_dir->path().c_str(), &vfsbuf) != 0) {
@@ -161,7 +165,11 @@ retry:
 		
 		if (nchecks < 3) {
 			// check the file a last time
-			file->check();
+			if (file->check()) {
+				this->error_detected = true;
+				// we exit the write thread
+				pthread_exit(NULL);
+			}
 		}
 		
 		this->lock();
@@ -182,7 +190,7 @@ void Filesystem::write(void)
 	new Dir(root_dir, 1);
 	cout << "Starting test       : " << ctime(&stats_old.time);
 
-	while(true) {
+	while(this->error_detected == false) {
 		// cout << "all_dirs: " << all_dirs.size() << endl;
 		// cout << "active_dirs: " << active_dirs.size() << endl;
 
@@ -278,7 +286,8 @@ start_again:
 	while(true) {
 		// file is locked here
 		
-		file->check();
+		if (file->check())
+			this->error_detected = true;
 		int fsize = file->get_fsize();
 		file->unlock();
 

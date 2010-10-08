@@ -38,6 +38,7 @@ File::File(Dir *dir, size_t fsize) : fsize(fsize)
 	prev = NULL;
 	next = NULL;
 	num_checks = 0;
+	has_error = false;
 	pthread_mutex_init(&this->mutex, NULL);
 	
 	// No need to lock the file here, as it is not globally known yet 
@@ -98,7 +99,7 @@ void File::fwrite(void)
 			cout << "Write " << path << fname << " at " << s << std::endl;
 #endif
 			if ((len = write(fd, &buf[offset], BUF_SIZE - offset)) < 0) {
-				std::cerr << "Write to " << path << fname << " failed";
+				cerr << "Write to " << path << fname << " failed";
 				perror(": ");
 				EXIT(1);
 			}
@@ -120,14 +121,22 @@ void File::fwrite(void)
 File::~File(void)
 {
 #ifdef DEBUG
-	cout << "~File(" << this->directory->path() + this->fname << ")\n";
+	cout << "~File(" << this->directory->path() + this->fname << ")" << endl;
 #endif
+
+	if (this->has_error) {
+		cout << "Refusing to delete " 
+			<< this->directory->path() + this->fname << endl;
+		this->unlock();
+		return;
+	}
+
 	// Remove from dir
 	directory->remove_file(this);
 	// delete file
 	if (::unlink((directory->path() + fname).c_str()) != 0)
 	{
-		std::cerr << "Deleting file " << directory->path() << fname << " failed";
+		cerr << "Deleting file " << directory->path() << fname << " failed";
 		perror(": ");
 		EXIT(1);
 	}
@@ -165,11 +174,14 @@ void File::unlink()
 /* check the file for corruption
  * the file MUST be locked before calling this method
  */
-void File::check(void)
+int File::check(void)
 {
 #ifdef DEBUG
 	cerr << " Checking file " << this->directory->path() << this->fname << endl;
 #endif
+
+	if (this->has_error)
+		return 0; // No need to further check this
 
 	if (this->trylock() != EBUSY)
 		cout << "Program error:  file is not locked " << this->fname << endl;
@@ -178,7 +190,7 @@ void File::check(void)
 	// Open file
 	fd = open((directory->path() + fname).c_str(), O_RDONLY);
 	if (fd == -1) {
-		std::cerr << " Checking file " << this->directory->path() << fname;
+		cerr << " Checking file " << this->directory->path() << fname;
 		perror(": ");
 		EXIT(1);
 	}
@@ -204,7 +216,7 @@ void File::check(void)
 			ssize_t len;
 			len = read(fd, &buff[offset], BUF_SIZE - offset);
 			if (len < 0) {
-				std::cerr << "Read from " << directory->path() 
+				cerr << "Read from " << directory->path() 
 					  << fname << " failed";
 				perror(": ");
 				EXIT(1);
@@ -212,21 +224,20 @@ void File::check(void)
 			offset += len;
 		}
 		if (memcmp(bufm, buff, BUF_SIZE) != 0) {
-			std::cerr << "File corruption in " 
-				  << directory->path() << fname
-			          << " around " << s << " [pattern = "
-			          << std::hex << id << std::dec << "]\n";
+			this->has_error = true;
+			cerr << "File corruption in " 
+				<< directory->path() << fname
+			        << " around " << s << " [pattern = "
+			        << std::hex << id << std::dec << "]" << endl;
+			cerr << "After n-checks: " <<  this->num_checks << endl;
 			for (unsigned ia = 0; ia < BUF_SIZE; ia++) {
 				if (memcmp(bufm + ia, buff + ia, 1) != 0) {
 					fprintf(stderr, "Expected: %x, got: %x (pos = %ld)\n",
 					        (unsigned char) bufm[ia], (unsigned char) buff[ia],
 					        s + ia);
-					EXIT (1);
 				}
 			}
-			// we actually never should get here
-			std::cerr << "Bug detected, previous exit never reached\n";
-			EXIT (1);
+			return 1;
 		}
 	}
 
@@ -237,6 +248,7 @@ void File::check(void)
 	close(fd);
 	
 	this->num_checks++;
+	return 0;
 }
 
 File * File::get_next() const

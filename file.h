@@ -54,6 +54,7 @@ private:
 	size_t fsize; // the file size 
 	uint32_t id;  // checksum pattern
 	pthread_mutex_t mutex;
+	bool has_error;
 	
 public:
 	char fname[9]; // file name
@@ -66,7 +67,7 @@ public:
 	
 	void link(File *file);
 	void unlink(void);
-	void check(void);
+	int check(void);
 	void lock(void);
 	void unlock(void);
 	int  trylock(void);

@@ -86,11 +86,9 @@ void start_threads(string dir, double percent)
 		EXIT(1);
 	}
 	
-	// Should never succeed.
-	// FIXME: Why can't the threads run completely in the background
-	// without a master threads (master exists)?
 	for (i = 0; i < 2; i++)
-		pthread_join(threads[0], NULL);
+		pthread_join(threads[i], NULL);
+		cout << "Thread " << i << "finished" << endl;
 }
 
 int main(int argc, char * const argv[])
