@@ -27,7 +27,7 @@
 #include "fstest.h"
 
 static int size_min = 20; // 1MiB
-static int size_max = 30; // 1GiB
+static int size_max = 22; // 1GiB
 static int stats_interval = 60;
 //int size_max = 35; // 32GiB
 //int stats_interval = 900;
@@ -112,12 +112,12 @@ void Filesystem::free_space(size_t fsize)
 
 	while(this->fssize - fsfree - fsize > this->fs_use_goal)
 	{
+		this->was_full = true;
 		// Remove a file
 	
 		int retry_count = 0;
 retry:
-		while (this->trylock())
-			sleep(1);
+		this->lock();
 		int nfiles = files.size();
 		if (nfiles < 5) {
 			this->unlock();
@@ -158,7 +158,7 @@ retry:
 #endif
 				this->unlock();
 				sleep(1);
-				goto retry;
+				goto retry; // try another file
 			} else {
 				// We need more files before we can delete one
 				this->unlock();
@@ -286,19 +286,23 @@ start_again:
 		this->unlock();
 		index++;
 		
+newindex:
 		this->lock();
 		unsigned long current_num_files = this->files.size();
 		if (index >= current_num_files) {
+			this->unlock();
 			// last file, restart from beginning
+			if (!this->was_full)
+				sleep(20); // give it some time to write new data
+			cout << "Starting to read from index 0" << endl;
 			index = 0;
+			goto newindex;
 		}
 		
 		File *tmp;
 		tmp = this->files.at(index);
 		if (tmp == file) {
 			this->unlock();
-			cerr << "cnum: " << current_num_files << " "
-				<< "index: " << index << endl;
 			continue; // re-read the current file
 		}
 		
@@ -342,4 +346,5 @@ int Filesystem::trylock(void)
 	}
 	return rc;
 }
+
 

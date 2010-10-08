@@ -1,5 +1,5 @@
 
-CXXFLAGS = -O2 -W -Wall -ggdb -DDEBUG
+CXXFLAGS = -O2 -W -Wall -ggdb
 CXX = g++
 
 # LDFLAGS=-m32 -static -D_FILE_OFFSET_BITS=64
