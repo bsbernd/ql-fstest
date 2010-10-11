@@ -46,7 +46,7 @@ private:
 	uint64_t fs_use_goal;
 	double goal_percent;
 	bool was_full;
-	int last_read_index; // last index read in
+	unsigned long last_read_index; // last index read in
 	
 	StatsStamp stats_old;
 	StatsStamp stats_now;

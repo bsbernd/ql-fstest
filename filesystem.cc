@@ -253,8 +253,8 @@ void Filesystem::write(void)
 				<< " GiB [" << write << " MiB/s] read: " << stats_now.read / GIGA 
 				<< " GiB [" << read << " MiB/s] Files: " << stats_now.num_files 
 				<< " [" << files << " files/s] # " << ctime(&stats_now.time)
-				<< " idx write: << " << this->files.size()
-				<< " idx read: << " << this->last_read_index 
+				<< " idx write: " << this->files.size()
+				<< " idx read: " << this->last_read_index 
 				<< endl;
 			
 			cout.flush();
@@ -265,8 +265,13 @@ void Filesystem::write(void)
 		// Some filesystems prefer writes over reads. But we don't want
 		// to let the reads to fall too far behind. Use arbitrary limit
 		// of 20 files
-		while  (this->stats_now.num_written_files > this->stats_now.num_read_files + 20)
-			sleep(1);
+			while (this->last_read_index + 20 < this->files.size())
+		if (!this->was_full) {
+				sleep(1);
+		} else {
+			while  (this->stats_now.num_written_files > this->stats_now.num_read_files + 20)
+				sleep(1);
+		}
 	}
 }
 
