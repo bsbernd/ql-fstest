@@ -122,7 +122,10 @@ void Filesystem::free_space(size_t fsize)
 
 	while(this->fssize - fsfree - fsize > this->fs_use_goal)
 	{
-		this->was_full = true;
+		if (!this->was_full) {
+			this->was_full = true;
+			cout << "Going into write/delete mode" << endl;
+		}
 		// Remove a file
 	
 		int retry_count = 0;
@@ -265,8 +268,8 @@ void Filesystem::write(void)
 		// Some filesystems prefer writes over reads. But we don't want
 		// to let the reads to fall too far behind. Use arbitrary limit
 		// of 20 files
-			while (this->last_read_index + 20 < this->files.size())
 		if (!this->was_full) {
+			while (this->last_read_index + 100 < this->files.size())
 				sleep(1);
 		} else {
 			while  (this->stats_now.num_written_files > this->stats_now.num_read_files + 20)
