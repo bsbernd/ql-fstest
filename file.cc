@@ -28,7 +28,6 @@
 #include "fstest.h"
 #include "file.h"
 
-const char HEX[] = "0123456789ABCDEF";
 const size_t BUF_SIZE = 1024*1024; // Must be power of 2
 
 using namespace std;
