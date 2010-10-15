@@ -78,7 +78,7 @@ void File::fwrite(void)
 
 	fd = open((path + this->fname).c_str(), O_WRONLY);
 	if (fd == -1) {
-		std::cout << "Writing file " << path << fname;
+		std::cerr << "Writing file " << path << fname;
 		perror(": ");
 		EXIT(1);
 	}
@@ -100,6 +100,16 @@ void File::fwrite(void)
 			cout << "Write " << path << fname << " at " << s << std::endl;
 #endif
 			if ((len = write(fd, &buf[offset], BUF_SIZE - offset)) < 0) {
+				if (errno == ENOSPC) {
+					cout << path << fname 
+						<< ": Out of disk space, "
+						<< "probably a race with another thread" << endl;
+					goto out;
+				}
+				if(errno == EIO) {
+					cout << "A Lustre eviction?" << endl;
+					goto out;
+				}
 				cerr << "Write to " << path << fname << " failed";
 				perror(": ");
 				EXIT(1);
@@ -108,6 +118,7 @@ void File::fwrite(void)
 		}
 	}
 
+out:
 	fdatasync(fd);
 	// Try to remove pages from memory to let the kernel re-read the file
 	// from disk on later reads
@@ -189,6 +200,7 @@ int File::check(void)
 	
 	int fd;
 	// Open file
+again:
 	fd = open((directory->path() + fname).c_str(), O_RDONLY);
 	if (fd == -1) {
 		cerr << " Checking file " << this->directory->path() << fname;
@@ -217,6 +229,12 @@ int File::check(void)
 			ssize_t len;
 			len = read(fd, &buff[offset], BUF_SIZE - offset);
 			if (len < 0) {
+				if(errno == EIO) {
+					cout << "IO error. A Lustre eviction?" << endl;
+					posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+					close(fd);
+					goto again;
+				}
 				cerr << "Read from " << directory->path() 
 					  << fname << " failed";
 				perror(": ");
@@ -224,7 +242,13 @@ int File::check(void)
 			}
 			offset += len;
 		}
-		if (memcmp(bufm, buff, BUF_SIZE) != 0) {
+
+		// If the filesystem was full, not the complete file was written
+		// and so the file might not have a size being a multiple of
+		// BUF_SIZE. So introduce a cmp size.
+		size_t cmpsize;
+		cmpsize = max(BUF_SIZE, fsize - s);
+		if (memcmp(bufm, buff, cmpsize) != 0) {
 			this->has_error = true;
 			cerr << "File corruption in " 
 				<< directory->path() << fname
