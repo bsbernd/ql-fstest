@@ -297,12 +297,7 @@ start_again:
 #ifdef DEBUG
 	cerr << "Starting to read files" << endl;
 #endif
-	
-	if (this->files.size() < 2) {
-		// Arg, already deleted again!
-		this->unlock();
-	}
-	
+		
 	File *file = this->files.at(index);
 	// now lock the file, still a chance of a race, until the unlink()
 	// methods also lock the filesystem first -> FIXME
@@ -311,7 +306,7 @@ start_again:
 
 	while(true) {
 		// file is locked here
-		
+
 		if (file->check())
 			this->error_detected = true;
 		int fsize = file->get_fsize();
@@ -322,10 +317,11 @@ start_again:
 		this->stats_now.read += fsize;
 		this->stats_now.num_read_files++;
 		this->unlock();
-		index++;
 newindex:
-		if (!this->was_full)
-			while (index + 5 >= this->files.size()) {
+		index++;
+
+		if (this->was_full == false)
+			while (index + 20 >= this->files.size()) {
 			// we want writes to be slightly ahead of reads
 			// due to the page cache
 				sleep(1); // give it some time to write new data
@@ -334,7 +330,6 @@ newindex:
 			cout << "Re-starting to read from index 0 (was "
 				<< index << ")" << endl;
 			index = 0;
-			goto newindex;
 		}
 		
 		this->lock();
@@ -349,15 +344,10 @@ newindex:
 		
 		File *tmp;
 		tmp = this->files.at(index);
-		if (tmp == file) {
-			this->unlock();
-			continue; // re-read the current file
-		}
 		
 		if (tmp->trylock()) {
 			this->unlock();
 			// file is busy, take next file
-			index++;
 			goto newindex;
 		}
 
