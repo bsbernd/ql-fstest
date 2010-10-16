@@ -246,7 +246,7 @@ again:
 		// and so the file might not have a size being a multiple of
 		// BUF_SIZE. So introduce a cmp size.
 		size_t cmpsize;
-		cmpsize = max(BUF_SIZE, fsize - s);
+		cmpsize = min(BUF_SIZE, fsize - s);
 		if (memcmp(bufm, buff, cmpsize) != 0) {
 			this->has_error = true;
 			cerr << "File corruption in " 
