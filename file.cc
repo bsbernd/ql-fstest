@@ -44,21 +44,28 @@ File::File(Dir *dir, size_t fsize) : fsize(fsize)
 	// No need to lock the file here, as it is not globally known yet 
 	// Initialization is just suffcient
 	
+	// according to man ctime_r we need at least 26 bytes
+	this->time_buf = (char *) malloc(30); 
+	if (this->time_buf == NULL) {
+		cerr << "Out of memory while allocating a file" << endl;
+		EXIT(1);
+	}
+	
 	int fd;
 	string path = dir->path();
 	
 	dir->add_file(this);
 	// Create file
 retry:
-	this->id = random();
-	snprintf(fname, 9, "%x", id);
+	this->id.value = random();
+	snprintf(fname, 9, "%x", id.value);
 
 	fd = open((path + this->fname).c_str(), O_WRONLY | O_CREAT | O_EXCL, 0600);
 	if (fd == -1) {
 		if (errno == EEXIST)
 			goto retry; // Try again with new name
 		std::cout << "Creating file " << path << fname;
-		perror(": ");
+		perror(" : ");
 		EXIT(1);
 	}
 	
@@ -78,20 +85,29 @@ void File::fwrite(void)
 	fd = open((path + this->fname).c_str(), O_WRONLY);
 	if (fd == -1) {
 		std::cerr << "Writing file " << path << fname;
-		perror(": ");
+		perror(" : ");
 		EXIT(1);
 	}
 	
+	time_t rawtime;
+	time(&rawtime);
+	this->create_time = string(ctime_r(&rawtime, this->time_buf));
+	
+	string &tmp =  this->create_time;
+	if (!tmp.empty() && tmp[tmp.length() - 1] == '\n')
+		tmp.erase(tmp.length() - 1); // remove "\n"
+	
 	// Create buffer and fill with id
 	char buf[BUF_SIZE];
-	((uint32_t*)buf)[0] = id;
-	size_t s = sizeof(id);
-	while(s < BUF_SIZE) {
-		memcpy(&buf[s], &buf[0], s);
-		s *= 2;
+	size_t size = sizeof(this->id.checksum);
+	
+	memcpy(&buf[0], this->id.checksum, size);
+	while(size < BUF_SIZE) {
+		memcpy(&buf[size], &buf[0], size);
+		size *= 2;
 	}
 	// write file
-	for(s = 0; s < this->fsize; s += BUF_SIZE) {
+	for(size = 0; size < this->fsize; size += BUF_SIZE) {
 		size_t offset = 0;
 		while(offset < BUF_SIZE) {
 			ssize_t len;
@@ -106,11 +122,11 @@ void File::fwrite(void)
 					goto out;
 				}
 				if(errno == EIO) {
-					cout << "A Lustre eviction?" << endl;
+					cout << path << fname << " : IO error A Lustre eviction?" << endl;
 					goto out;
 				}
 				cerr << "Write to " << path << fname << " failed";
-				perror(": ");
+				perror(" : ");
 				EXIT(1);
 			}
 			offset += len;
@@ -148,9 +164,12 @@ File::~File(void)
 	if (::unlink((directory->path() + fname).c_str()) != 0)
 	{
 		cerr << "Deleting file " << directory->path() << fname << " failed";
-		perror(": ");
+		perror(" : ");
 		EXIT(1);
 	}
+	
+	free(this->time_buf);
+	
 	this->unlock();
 	pthread_mutex_destroy(&this->mutex);
 }
@@ -202,8 +221,8 @@ int File::check(void)
 again:
 	fd = open((directory->path() + fname).c_str(), O_RDONLY);
 	if (fd == -1) {
-		cerr << " Checking file " << this->directory->path() << fname;
-		perror(": ");
+		cerr << " Checking file " << this->directory->path() << this->fname;
+		perror(" : ");
 		EXIT(1);
 	}
 
@@ -215,28 +234,31 @@ again:
 	//Create buffer and fill with id
 	char bufm[BUF_SIZE];
 	char buff[BUF_SIZE];
-	((uint32_t*)bufm)[0] = id;
-	size_t s = sizeof(id);
-	while(s < BUF_SIZE) {
-		memcpy(&bufm[s], &bufm[0], s);
-		s *= 2;
+	size_t size = sizeof(this->id.checksum);
+	
+	memcpy(&bufm[0], this->id.checksum, size);
+	while(size < BUF_SIZE) {
+		memcpy(&bufm[size], &bufm[0], size);
+		size *= 2;
 	}
+	
 	// read and compare file
-	for(s = 0; s < fsize; s += BUF_SIZE) {
+	for(size = 0; size < fsize; size += BUF_SIZE) {
 		size_t offset = 0;
 		while(offset < BUF_SIZE) {
 			ssize_t len;
 			len = read(fd, &buff[offset], BUF_SIZE - offset);
 			if (len < 0) {
 				if(errno == EIO) {
-					cout << "IO error. A Lustre eviction?" << endl;
+					cout << this->directory->path() << fname 
+						<< " : IO error A Lustre eviction?" << endl;
 					posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 					close(fd);
 					goto again;
 				}
 				cerr << "Read from " << directory->path() 
 					  << fname << " failed";
-				perror(": ");
+				perror(" : ");
 				EXIT(1);
 			}
 			offset += len;
@@ -246,19 +268,20 @@ again:
 		// and so the file might not have a size being a multiple of
 		// BUF_SIZE. So introduce a cmp size.
 		size_t cmpsize;
-		cmpsize = min(BUF_SIZE, fsize - s);
+		cmpsize = min(BUF_SIZE, fsize - size);
 		if (memcmp(bufm, buff, cmpsize) != 0) {
 			this->has_error = true;
 			cerr << "File corruption in " 
-				<< directory->path() << fname
-			        << " around " << s << " [pattern = "
-			        << std::hex << id << std::dec << "]" << endl;
+				<< directory->path() << this->fname
+				<< " (create time: " << this->create_time << ")"
+			        << " around " << size << " [pattern = "
+			        << std::hex << id.value << std::dec << "]" << endl;
 			cerr << "After n-checks: " <<  this->num_checks << endl;
 			for (unsigned ia = 0; ia < BUF_SIZE; ia++) {
 				if (memcmp(bufm + ia, buff + ia, 1) != 0) {
 					fprintf(stderr, "Expected: %x, got: %x (pos = %ld)\n",
 					        (unsigned char) bufm[ia], (unsigned char) buff[ia],
-					        s + ia);
+					        size + ia);
 				}
 			}
 			return 1;
@@ -290,7 +313,7 @@ void File::lock(void)
 	int rc = pthread_mutex_lock(&this->mutex);
 	if (rc) {
 		cerr << "Failed to lock " << this->fname << " : " << strerror(rc);
-		perror(": ");
+		perror(" : ");
 		EXIT(1);
 	}
 }
@@ -300,7 +323,7 @@ void File::unlock(void)
 	int rc = pthread_mutex_unlock(&this->mutex);
 	if (rc) {
 		cerr << "Failed to lock " << this->fname << " : " << strerror(rc);
-		perror(": ");
+		perror(" : ");
 		EXIT(1);
 	}
 }
@@ -310,7 +333,7 @@ int File::trylock(void)
 	int rc = pthread_mutex_trylock(&this->mutex);
 	if (rc && rc != EBUSY) {
 		cerr << "Failed to lock " << this->fname << " : " << strerror(rc);
-		perror(": ");
+		perror(" : ");
 		EXIT(1);
 	}
 	return rc;
