@@ -61,10 +61,11 @@ private:
 	}id;  // checksum pattern
 	
 	pthread_mutex_t mutex;
-	bool has_error;
 	char *time_buf; // for ctime_r(time, time_buf)
 	string create_time; //create time 
 	
+	bool sync_failed; // fsync() or close() failed
+	bool has_error; // 
 public:
 	char fname[9]; // file name
 	File(Dir *dir, uint64_t num);

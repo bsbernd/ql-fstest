@@ -38,6 +38,7 @@ File::File(Dir *dir, size_t fsize) : fsize(fsize)
 	prev = NULL;
 	next = NULL;
 	num_checks = 0;
+	sync_failed = false;
 	has_error = false;
 	pthread_mutex_init(&this->mutex, NULL);
 	
@@ -80,6 +81,7 @@ retry:
 void File::fwrite(void)
 {
 	int fd;
+	int rc;
 	string path = directory->path();
 
 	fd = open((path + this->fname).c_str(), O_WRONLY);
@@ -112,7 +114,8 @@ void File::fwrite(void)
 		while(offset < BUF_SIZE) {
 			ssize_t len;
 #ifdef DEBUG
-			cout << "Write " << path << fname << " at " << s << std::endl;
+			cout << "Write " << this->path << this->fname 
+				<< " at " << s << std::endl;
 #endif
 			if ((len = write(fd, &buf[offset], BUF_SIZE - offset)) < 0) {
 				if (errno == ENOSPC) {
@@ -122,7 +125,7 @@ void File::fwrite(void)
 					goto out;
 				}
 				if(errno == EIO) {
-					cout << path << fname << " : IO error A Lustre eviction?" << endl;
+					cout << path << fname << " : IO error. A Lustre eviction?" << endl;
 					goto out;
 				}
 				cerr << "Write to " << path << fname << " failed";
@@ -134,11 +137,21 @@ void File::fwrite(void)
 	}
 
 out:
-	fdatasync(fd);
+	rc = fdatasync(fd);
+	if (rc) {
+		cerr << "fdatasync() " << path << this->fname 
+			<< " failed" << strerror(errno) <<endl;
+		this->sync_failed = true;
+	}
 	// Try to remove pages from memory to let the kernel re-read the file
 	// from disk on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 	close(fd);
+	if (rc) {
+		cerr << "close() " << path << this->fname 
+			<< " failed: " << strerror(errno) << endl;
+		this->sync_failed = true;
+	}
 }
 
 
@@ -284,7 +297,10 @@ again:
 					        size + ia);
 				}
 			}
-			return 1;
+			// Do not return an error and abort writes, if we know
+			// this sync to disk of this file failed
+			if (!this->sync_failed)
+				return 1;
 		}
 	}
 
