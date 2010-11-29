@@ -292,9 +292,9 @@ again:
 			cerr << "After n-checks: " <<  this->num_checks << endl;
 			for (unsigned ia = 0; ia < BUF_SIZE; ia++) {
 				if (memcmp(bufm + ia, buff + ia, 1) != 0) {
-					fprintf(stderr, "Expected: %x, got: %x (pos = %ld)\n",
+					fprintf(stderr, "Expected: %x, got: %x (pos = %lu)\n",
 					        (unsigned char) bufm[ia], (unsigned char) buff[ia],
-					        size + ia);
+					        (long unsigned) size + ia);
 				}
 			}
 			// Do not return an error and abort writes, if we know

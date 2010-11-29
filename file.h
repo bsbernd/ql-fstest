@@ -68,7 +68,7 @@ private:
 	bool has_error; // 
 public:
 	char fname[9]; // file name
-	File(Dir *dir, uint64_t num);
+	File(Dir *dir, size_t fsize);
 
 	~File(void);
 
