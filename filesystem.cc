@@ -86,8 +86,14 @@ void Filesystem::update_stats(void)
 		EXIT(1);
 	}
 
-	fssize = statvfsbuf.f_blocks * statvfsbuf.f_frsize;
-	fsfree = statvfsbuf.f_bavail * statvfsbuf.f_frsize;
+#ifdef DEBUG
+	cout 	<< "statvfsbuf.f_blocks=" << statvfsbuf.f_blocks <<endl
+	     	<< "statvfsbuf.f_frsize=" << statvfsbuf.f_frsize <<endl
+		<< "statvfsbuf.f_bavail=" << statvfsbuf.f_bavail 
+		<< endl;
+#endif
+	fssize = (uint64_t) statvfsbuf.f_blocks * statvfsbuf.f_frsize;
+	fsfree = (uint64_t) statvfsbuf.f_bavail * statvfsbuf.f_frsize;
 	
 	// TODO:  overload an op?*
 	this->stats_all.read += this->stats_now.read;
