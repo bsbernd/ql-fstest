@@ -100,7 +100,11 @@ void File::fwrite(void)
 		tmp.erase(tmp.length() - 1); // remove "\n"
 	
 	// Create buffer and fill with id
-	char buf[BUF_SIZE];
+	char *buf = (char *)malloc(BUF_SIZE);
+	if (!buf) {
+		cerr << "malloc failed" << endl;
+		EXIT(1);
+	}
 	size_t size = sizeof(this->id.checksum);
 	
 	memcpy(&buf[0], this->id.checksum, size);
@@ -114,8 +118,8 @@ void File::fwrite(void)
 		while(offset < BUF_SIZE) {
 			ssize_t len;
 #ifdef DEBUG
-			cout << "Write " << this->path << this->fname 
-				<< " at " << s << std::endl;
+			cout << "Write " << path << this->fname 
+				<< " at " << offset << std::endl;
 #endif
 			if ((len = write(fd, &buf[offset], BUF_SIZE - offset)) < 0) {
 				if (errno == ENOSPC) {
@@ -152,6 +156,7 @@ out:
 			<< " failed: " << strerror(errno) << endl;
 		this->sync_failed = true;
 	}
+	free(buf);
 }
 
 
@@ -223,6 +228,8 @@ int File::check(void)
 	cerr << " Checking file " << this->directory->path() << this->fname << endl;
 #endif
 
+	int ret = 1;
+
 	if (this->has_error)
 		return 0; // No need to further check this
 
@@ -245,8 +252,13 @@ again:
 	posix_fadvise(fd, 0 ,0, POSIX_FADV_NOREUSE);
 
 	//Create buffer and fill with id
-	char bufm[BUF_SIZE];
-	char buff[BUF_SIZE];
+	char *bufm = (char *)malloc(BUF_SIZE);
+	char *buff = (char *)malloc(BUF_SIZE);
+	if (!bufm or !buff) {
+		cerr << "Malloc failed" << endl;
+		EXIT(1);
+	}
+
 	size_t size = sizeof(this->id.checksum);
 	
 	memcpy(&bufm[0], this->id.checksum, size);
@@ -299,8 +311,10 @@ again:
 			}
 			// Do not return an error and abort writes, if we know
 			// this sync to disk of this file failed
-			if (!this->sync_failed)
-				return 1;
+			if (!this->sync_failed) {
+				ret = 1;
+				goto out;
+			}
 		}
 	}
 
@@ -311,7 +325,12 @@ again:
 	close(fd);
 	
 	this->num_checks++;
-	return 0;
+	ret = 0;
+
+out:
+	free(bufm);
+	free(buff);
+	return ret;
 }
 
 File * File::get_next() const
