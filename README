@@ -1,0 +1,41 @@
+This program is to check a filesystem for data-integrity. 
+
+Example: fstest -p 99 /mnt/my-test-filesystem/ >fstest.out 2>fstest.err
+
+
+You should redirect stdout and stderr into different files, as fstest writes
+stats about the number of written and read files minutely to stdout. You
+might easily miss critical errors written to stderr, if both streams
+are directed into the same file.
+
+What is ql-fstest doing:
+It consists of two threads, a writer and a reader. The writer thread
+writes uses random numbers converted to hex as pattern written to
+files. The filename corresponds to the pattern.
+Initially the reader thread stays a few files behind the writer thread
+and checks if the data written by the writer thread match the written pattern.
+In order to avoid cache effects, we use posix_fadvise and try to tell the kernel
+to remove data from the page cache once the file was written. 
+(The same applies for reads). Additionally the reader is a few files behind the 
+writer, which should make sure, the cache is filled with other data, if the 
+kernel should ignore the posix_fadvise command.
+
+Once the filesystem filled up to the maximum given level, the writer thread 
+will start to delete files in order to write new data. Before it deletes a 
+file, it will itself check if the file still has correct data (unless the file
+was already checked 10 times by the reader thread).
+On the other hand, the reader thread will restart to read files from the very
+beginning, once it has read the last file written before the filesystem was full.
+
+
+Acknowledgement:
+This program was originally written by Goswin von Brederlow for 
+Q-Leap Networks GmbH. 
+Multithreaded code, cleanup, posix_fadvise have been added by Bernd Schubert
+for DataDirect Networks.
+
+The program has proven to reliably detect data corruption in a number of cases
+(for example bad hard drives in cheap raid arrays, which do not check for
+data-integrity).
+
+Current Maintainer: Bernd Schubert <bernd.schubert@fastmail.fm>
