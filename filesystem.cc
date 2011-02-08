@@ -47,7 +47,7 @@ Filesystem::Filesystem(string dir, double percent)
 	memset(&stats_all, 0, sizeof(stats_all));
 	this->update_stats();
 
-	fs_use_goal = this->fssize * percent;
+	this->fs_use_goal = (double) this->fssize * percent;
 	
 	cout << "Filesystem size     : " << fssize << endl;
 	cout << "Filesystem free     : " << fsfree << endl;
@@ -124,10 +124,10 @@ void Filesystem::free_space(size_t fsize)
 		perror("statvfs()");
 		EXIT(1);
 	}
-	uint64_t fsfree = vfsbuf.f_bavail * vfsbuf.f_frsize;
+	double fsfree = vfsbuf.f_bavail * vfsbuf.f_frsize;
 
 	int retry_count = 0;
-	while(this->fssize - fsfree - fsize > this->fs_use_goal 
+	while((double) this->fssize - fsfree - (double) fsize > (double)this->fs_use_goal 
 		&& retry_count < 20 
 		&& this->files.size() > 2)
 	{

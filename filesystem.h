@@ -43,7 +43,7 @@ private:
 
 	uint64_t fssize;
 	uint64_t fsfree;
-	uint64_t fs_use_goal;
+	double fs_use_goal;
 	double goal_percent;
 	bool was_full;
 	unsigned long last_read_index; // last index read in
