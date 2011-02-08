@@ -10,22 +10,25 @@ are directed into the same file.
 
 What is ql-fstest doing:
 It consists of two threads, a writer and a reader. The writer thread
-writes uses random numbers converted to hex as pattern written to
-files. The filename corresponds to the pattern.
+writes random numbers as pattern to files. The filename (using the number
+converted to hex) corresponds to that pattern.
 Initially the reader thread stays a few files behind the writer thread
-and checks if the data written by the writer thread match the written pattern.
-In order to avoid cache effects, we use posix_fadvise and try to tell the kernel
+and checks if the pattern is correct.
+In order to avoid cache effects, we use posix_fadvise() and try to tell the kernel
 to remove data from the page cache once the file was written. 
-(The same applies for reads). Additionally the reader is a few files behind the 
+(Same applies for reads). Additionally the reader is a few files behind the 
 writer, which should make sure, the cache is filled with other data, if the 
-kernel should ignore the posix_fadvise command.
+kernel should ignore the posix_fadvise() command.
 
 Once the filesystem filled up to the maximum given level, the writer thread 
-will start to delete files in order to write new data. Before it deletes a 
-file, it will itself check if the file still has correct data (unless the file
-was already checked 10 times by the reader thread).
-On the other hand, the reader thread will restart to read files from the very
-beginning, once it has read the last file written before the filesystem was full.
+will start to delete files in order to write new data. But before it deletes a 
+file, it will itself again check if the file still has correct data (unless the file
+was already checked 10 times by the reader thread before).
+As the writer thread now does reads and writes itself, the reader quickly catches up
+and in order to give it some work, the reader thread will restart to read files from 
+index 0 once it has read the last file written before the filesystem was full.
+
+The program will run forever, unless stopped by the user.
 
 
 Acknowledgement:
