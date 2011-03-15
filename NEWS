@@ -1,0 +1,4 @@
+0.3
+- (Bernd) pulled in updates already done at the beginning of January at ITWM
+  to use malloced buffers and not static (stack) buffers, as it failed
+  to run on an ITWM FhGFS test cluster
