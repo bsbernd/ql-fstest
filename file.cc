@@ -70,7 +70,9 @@ retry:
 		EXIT(1);
 	}
 	
-	close(fd);
+	int rc = close(fd);
+	if (rc)
+		cerr << "Close " << path << fname << " failed: " << strerror(errno) << endl;
 	
 	directory->fs->files.push_back(this);
 }
@@ -144,13 +146,13 @@ out:
 	rc = fdatasync(fd);
 	if (rc) {
 		cerr << "fdatasync() " << path << this->fname 
-			<< " failed" << strerror(errno) <<endl;
+			<< " failed: " << strerror(errno) <<endl;
 		this->sync_failed = true;
 	}
 	// Try to remove pages from memory to let the kernel re-read the file
 	// from disk on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
-	close(fd);
+	rc = close(fd);
 	if (rc) {
 		cerr << "close() " << path << this->fname 
 			<< " failed: " << strerror(errno) << endl;
