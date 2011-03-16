@@ -145,9 +145,9 @@ void File::fwrite(void)
 out:
 	rc = fdatasync(fd);
 	if (rc) {
-		int tmp_errno = errno; // seems to be reset by cerr already
 		cerr << "fdatasync() " << path << this->fname 
-			<< " failed (" << rc << "): " << strerror(tmp_errno) <<endl;
+			<< " failed (rc = " << rc << "): " 
+			<< strerror(errno) <<endl;
 		this->sync_failed = true;
 	}
 	// Try to remove pages from memory to let the kernel re-read the file
@@ -155,9 +155,9 @@ out:
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 	rc = close(fd);
 	if (rc) {
-		int tmp_errno = errno; // seems to be reset by cerr already
 		cerr << "close() " << path << this->fname 
-			<< " failed: (" << rc << "): " << strerror(tmp_errno) << endl;
+			<< " failed: (rc = " << rc << "): "
+			<< strerror(errno) << endl;
 		this->sync_failed = true;
 	}
 	free(buf);
