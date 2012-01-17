@@ -26,6 +26,18 @@
  ************************************************************************/
 
 #include "fstest.h"
+#include "config.h"
+
+static Config_fstest global_cfg;
+
+/**
+ * Return the program wide configuration
+ */
+Config_fstest *get_global_cfg(void)
+{
+   return &global_cfg;
+}
+
 
 using namespace std;
 
@@ -33,13 +45,15 @@ static char *cmd;
 
 void usage(ostream &out)
 {
-	out << "\n";
-	out << cmd << " -h|--help         - show help.\n";
-	out << cmd << " [options] [<dir>] - directory on filesystem to test in.\n";
+	out << endl;
+	out << cmd << " -h|--help         - show help." << endl;
+	out << cmd << " [options] [<dir>] - directory on filesystem to test in." << endl;
 	out << endl;
 	out << "Options:\n";
-	out << " -p|--percent <percent> - goal percentage used of filesystem [90].\n";
-	out << "\n";
+	out << " -p|--percent <percent> - goal percentage used of filesystem [90]." << endl;
+	out << " -i|--immediate         - check files immediately after writing them instead of" << endl
+	    << "                          letting the read-thread do it later on." << endl;
+	out << endl;
 	
 }
 
@@ -60,9 +74,12 @@ void *run_read_thread(void *arg)
 }
 
 
-void start_threads(string dir, double percent)
+void start_threads(void)
 {
-	Filesystem * filesystem = new Filesystem(dir, percent);
+	string dir = global_cfg.get_testdir();
+	double goal_percent = global_cfg.get_usage();
+
+	Filesystem * filesystem = new Filesystem(dir, goal_percent);
 	
 	int rc;
 	pthread_t threads[2];
@@ -100,9 +117,10 @@ int main(int argc, char * const argv[])
 	cmd = argv[0];
 
 	// Getopt stuff
-	const char optstring[] = "hp:";
+	const char optstring[] = "hip:";
 	const struct option longopts[] = {
 		{ "help", 0, NULL, 'h' },
+		{ "immediate", 0, NULL, 'i' },
 		{ "percent", 1, NULL, 'p' },
 		{ NULL, 0, NULL, 0 }
 	};
@@ -110,7 +128,7 @@ int main(int argc, char * const argv[])
 
 	// Arguments
 	double percent = 0.9;
-	string dir = "";
+	string testdir = "";
 
 	while((res = getopt_long(argc, argv, optstring, longopts, &longindex)) != -1) {
 		switch(res) {
@@ -118,12 +136,15 @@ int main(int argc, char * const argv[])
 			usage(cout);
 			exit(0);
 			break;
+		case 'i':
+			global_cfg.set_immediate_check(true);
+			break;
 		case '?':
 			usage(cerr);
 			EXIT(1);
 			break;
 		case 'p':
-			percent = strtod(optarg, NULL) / 100;
+			global_cfg.set_usage(strtod(optarg, NULL) / 100);
 			break;
 		default:
 			printf ("Error: unknown option '%c'\n", res);
@@ -132,12 +153,9 @@ int main(int argc, char * const argv[])
 		}
 	}
 
-	// Get optional arg <dir> and add trailing '/'
+	// Get optional arg <testdir> and add trailing '/'
 	if (optind < argc) {
-		dir = argv[optind++];
-		if ((dir.length() > 0) && (dir[dir.length() - 1] != '/')) {
-			dir += '/';
-		}
+		testdir = argv[optind++];
 	}
 
 	if (optind < argc) {
@@ -151,31 +169,25 @@ int main(int argc, char * const argv[])
 		EXIT(1);
 	}
 
-	// Check that dir exists and is a directory
-	if (dir.length() > 0) {
-		if (stat(dir.c_str(), &statbuf) != 0) {
-			perror(dir.c_str());
+	// Check that testdir exists and is a directory
+	if (testdir.length() > 0) {
+		if (stat(testdir.c_str(), &statbuf) != 0) {
+			perror(testdir.c_str());
 			EXIT(1);
 		}
 		if (!S_ISDIR(statbuf.st_mode)) {
-			cerr << "Error: " << dir << " is not a directory.\n";
+			cerr << "Error: " << testdir << " is not a directory.\n";
 			EXIT(1);
 		}
 	}
 
-	{
-		// add pid to directory
-		pid_t pid = getpid();
-		stringstream str;
-		str << pid;
-		dir += "fstest." + str.str() + "/";
-	}
+	global_cfg.set_testdir(testdir);
 
 	cout << "fstest v0.1\n";
-	cout << "Directory           : " << ((dir=="")?"./":dir) << endl;
+	cout << "Directory           : " << ((testdir == "" ) ? "./" : testdir) << endl;
 	cout << "Goal percentage used: " << percent * 100 << endl;
 
-	start_threads(dir, percent);
+	start_threads();
 
 	cout << "Done.\n";
 	RETURN(0);

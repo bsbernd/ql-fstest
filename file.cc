@@ -27,6 +27,7 @@
 
 #include "fstest.h"
 #include "file.h"
+#include "config.h"
 
 const size_t BUF_SIZE = 1024*1024; // Must be power of 2
 
@@ -86,6 +87,7 @@ void File::fwrite(void)
 {
 	int fd;
 	int rc;
+	bool immediate_check = get_global_cfg()->get_immediate_check();
 	string path = directory->path();
 
 	fd = open((path + this->fname).c_str(), O_RDWR);
@@ -150,9 +152,11 @@ out:
 	// from disk on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 
-	errno = 0; // reset errno
-	lseek(fd, 0, SEEK_SET);
-	this->check_fd(fd); // immediately check the file now, TODO: make this an option
+	if (immediate_check) {
+		errno = 0; // reset errno
+		lseek(fd, 0, SEEK_SET);
+		this->check_fd(fd); // immediately check the file now, TODO: make this an option
+	}
 
 	rc = close(fd);
 	if (rc) {

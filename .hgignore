@@ -74,6 +74,15 @@ Doxyfile
 # diff rejects
 *.rej
 
+# eclipse
+.cproject
+.project
+.settings
+.classpath
+org.eclipse.cdt.codan.core.prefs
+.cdt*
+
+
 # Entries better done as regexp's to avoid matching too broadly
 syntax: regexp
 ^config\.*
