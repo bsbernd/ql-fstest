@@ -10,7 +10,7 @@ FILES = fstest.o dir.o file.o filesystem.o
 all: fstest
 
 fstest: $(FILES)
-	$(CXX) $(LDFLAGS) -o $@ $(FILES)
+	$(CXX) -o $@ $(FILES) $(LDFLAGS)
 
 fstest.o: fstest.cc
 
