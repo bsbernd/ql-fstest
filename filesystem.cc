@@ -7,6 +7,7 @@
  *
  * Copyright (C) 2007 Q-leap Networks, Goswin von Brederlow
  *               2010 DataDirect Networks, Bernd Schubert
+ *               2013 Fraunhofer ITWM, Bernd Schubert
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -26,9 +27,8 @@
  ************************************************************************/
 
 #include "fstest.h"
+#include "config.h"
 
-static int size_min = 20; // 1MiB
-static int size_max = 30; // 1GiB
 static int stats_interval = 60;
 //int size_max = 35; // 32GiB
 //int stats_interval = 900;
@@ -195,6 +195,9 @@ void Filesystem::write(void)
 	int max_files = 1;
 	new Dir(root_dir, 1);
 	cout << "Starting test       : " << ctime(&stats_old.time);
+
+	int size_min = get_global_cfg()->get_min_size_bits();
+	int size_max = get_global_cfg()->get_max_size_bits();
 
 	while(this->error_detected == false) {
 		// cout << "all_dirs: " << all_dirs.size() << endl;

@@ -1,7 +1,7 @@
 /*
  * Configuration options for the fstest utility
  *
- *    Copyright (C) 2011 Fraunhofer ITWM, Bernd Schubert
+ *    Copyright (C) 2013 Fraunhofer ITWM, Bernd Schubert
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -25,19 +25,30 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#define MAX_USAGE_PERCENT 90 // fill file system up to this level
+
+// file sizes between min and max
+#define DEFAULT_MIN_SIZE_BITS 20 // 2^20 = 1MiB
+#define DEFAULT MAX_SIZE_BITS 30 // 2^30 = 1GiB
+
+
 class Config_fstest {
 public:
 	Config_fstest(void)
 	{
-		this->usage_percent = 90;
+		this->usage_percent = MAX_USAGE_PERCENT;
 		this->immediate_check = false;
 		this->testdir = "";
+		this->min_size_bits = 20; 
+		this->max_size_bits = 30; 
 	}
 
 private:
 	double usage_percent; // max fill level
 	bool immediate_check;
 	string testdir;
+	int min_size_bits;
+	int max_size_bits;
 
 public:
 	void set_usage(double value)
@@ -80,6 +91,29 @@ public:
 	{
 		return this->testdir;
 	}
+
+	void set_min_size_bits(int min)
+	{
+		this->min_size_bits = min;
+	}
+
+	int get_min_size_bits(void)
+	{
+		return this->min_size_bits;
+	}
+
+	void set_max_size_bits(int max)
+	{
+		this->max_size_bits = max;
+	}
+
+	int get_max_size_bits(void)
+	{
+		return this->max_size_bits;
+	}
+
+
+
 };
 
 Config_fstest *get_global_cfg(void);

@@ -53,6 +53,8 @@ void usage(ostream &out)
 	out << " -p|--percent <percent> - goal percentage used of filesystem [90]." << endl;
 	out << " -i|--immediate         - check files immediately after writing them instead of" << endl
 	    << "                          letting the read-thread do it later on." << endl;
+	out << " --min-bits             - min file size bits 2^n  [20] (1MiB)." << endl;
+	out << " --max-bits             - max file size bits 2^n. [30] (1GiB)." << endl;
 	out << endl;
 	
 }
@@ -119,10 +121,12 @@ int main(int argc, char * const argv[])
 	// Getopt stuff
 	const char optstring[] = "hip:";
 	const struct option longopts[] = {
-		{ "help", 0, NULL, 'h' },
+		{ "help"     , 0, NULL, 'h' },
 		{ "immediate", 0, NULL, 'i' },
-		{ "percent", 1, NULL, 'p' },
-		{ NULL, 0, NULL, 0 }
+		{ "percent"  , 1, NULL, 'p' },
+		{ "min-bits" , 1, NULL,  1  },
+		{ "max-bits" , 1, NULL,  2  },
+		{ NULL       , 0, NULL,  0  }
 	};
 	int longindex = 0;
 
@@ -145,6 +149,11 @@ int main(int argc, char * const argv[])
 			break;
 		case 'p':
 			global_cfg.set_usage(strtod(optarg, NULL) / 100);
+			break;
+		case 1:
+			global_cfg.set_min_size_bits(atoi(optarg));
+			break;
+		case 2: global_cfg.set_max_size_bits(atoi(optarg));
 			break;
 		default:
 			printf ("Error: unknown option '%c'\n", res);
