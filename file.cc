@@ -191,9 +191,11 @@ File::~File(void)
 	// delete file
 	if (::unlink((directory->path() + fname).c_str()) != 0)
 	{
-		cerr << "Deleting file " << directory->path() << fname << " failed";
-		perror(" : ");
-		EXIT(1);
+		cerr << "Deleting file " << directory->path() << fname << " failed:" <<
+			strerror(errno) << std::endl;
+		if (errno != ENOENT)
+			EXIT(1);
+
 	}
 	
 	free(this->time_buf);
