@@ -68,7 +68,7 @@ retry:
 	if (fd == -1) {
 		if (errno == EEXIST)
 			goto retry; // Try again with new name
-		std::cout << "Creating file " << path << fname;
+		std::cerr << "Creating file " << path << fname;
 		perror(" : ");
 		EXIT(1);
 	}
