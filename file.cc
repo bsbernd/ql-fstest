@@ -7,6 +7,7 @@
  *
  * Copyright (C) 2007 Q-leap Networks, Goswin von Brederlow
  *               2010 DataDirect Networks, Bernd Schubert
+ *               2013 Fraunhofer ITWM, Bernd Schubert
  *
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -31,17 +32,31 @@
 
 const size_t BUF_SIZE = 1024*1024; // Must be power of 2
 
+#define RANDOM_SIZE 4096
+
 using namespace std;
 
-File::File(Dir *dir, size_t fsize) 
+File::File(Dir *dir)
 {
+
+
 	this->fsize = fsize;
 	this->directory = dir;
 	this->prev = NULL;
 	this->next = NULL;
 	this->num_checks = 0;
 	this->sync_failed = false;
-	this->has_error = false;
+	this->has_error   = false;
+	this->in_delete    = false;
+
+	size_t size_min = get_global_cfg()->get_min_size_bits();
+	size_t size_max = get_global_cfg()->get_max_size_bits();
+	size_t random_size = random() % 4096;
+
+	// Pick a random file size
+	this->fsize = 1ULL << (size_min + random() % (size_max - size_min + 1));
+	this->fsize += random_size; // do not let most of the the files have size of 2^n
+
 
 	pthread_mutex_init(&this->mutex, NULL);
 	
@@ -54,11 +69,10 @@ File::File(Dir *dir, size_t fsize)
 		cerr << "Out of memory while allocating a file" << endl;
 		EXIT(1);
 	}
-	
+
 	int fd;
 	string path = dir->path();
-	
-	dir->add_file(this);
+
 	// Create file
 retry:
 	this->id.value = random();
@@ -72,12 +86,13 @@ retry:
 		perror(" : ");
 		EXIT(1);
 	}
-	
+
 	int rc = close(fd);
 	if (rc)
 		cerr << "Close " << path << fname << " failed: " << strerror(errno) << endl;
-	
-	directory->fs->files.push_back(this);
+
+	// cout << "Path: " << path << fname <<" Size: " << this->fsize << endl;
+
 }
 
 /* Write a file here 
@@ -96,15 +111,15 @@ void File::fwrite(void)
 		perror(" : ");
 		EXIT(1);
 	}
-	
+
 	time_t rawtime;
 	time(&rawtime);
 	this->create_time = string(ctime_r(&rawtime, this->time_buf));
-	
+
 	string &tmp =  this->create_time;
 	if (!tmp.empty() && tmp[tmp.length() - 1] == '\n')
 		tmp.erase(tmp.length() - 1); // remove "\n"
-	
+
 	// Create buffer and fill with id
 	char *buf = (char *)malloc(BUF_SIZE);
 	if (!buf) {
@@ -112,18 +127,30 @@ void File::fwrite(void)
 		EXIT(1);
 	}
 	size_t size = sizeof(this->id.checksum);
-	
+
 	memcpy(&buf[0], this->id.checksum, size);
 	while(size < BUF_SIZE) {
 		memcpy(&buf[size], &buf[0], size);
 		size *= 2;
 	}
 	// write file
-	for(size = 0; size < this->fsize; size += BUF_SIZE) {
-		size_t offset = 0;
-		while(offset < BUF_SIZE) {
-			ssize_t write_len = write(fd, &buf[offset], BUF_SIZE - offset);
-			if (write_len < 0) {
+
+	loff_t file_offset = 0;
+	bool file_end = false;
+	while ( ( (uint64_t) file_offset < this->fsize) && !file_end) {
+		size_t buf_offset = 0;
+		while (buf_offset < BUF_SIZE && !file_end) {
+
+			size_t remaining_buf_len = BUF_SIZE - buf_offset;
+			size_t write_len = remaining_buf_len;
+
+			if (file_offset + write_len > this->fsize) {
+				write_len = this->fsize - file_offset;
+				file_end = true;
+			}
+
+			ssize_t written_len = write(fd, &buf[buf_offset], write_len);
+			if (written_len < 0) {
 				if (errno == ENOSPC) {
 					cout << path << fname 
 						<< ": Out of disk space, "
@@ -134,8 +161,18 @@ void File::fwrite(void)
 				perror(" : ");
 				EXIT(1);
 			}
-			offset += write_len;
+
+			buf_offset  += written_len;
+			file_offset += written_len;
+
+			if ((size_t) file_offset > this->fsize) {
+				cerr << "Bug: Wrote more than we should write!: " <<
+					path << fname << endl;
+			}
+
 		}
+
+		// cout << "file_offset: " << file_offset << " goal-fsize: " << this->fsize << endl;
 	}
 
 out:
@@ -197,9 +234,9 @@ File::~File(void)
 			EXIT(1);
 
 	}
-	
+
 	free(this->time_buf);
-	
+
 	this->unlock();
 	pthread_mutex_destroy(&this->mutex);
 }
@@ -260,12 +297,13 @@ int File::check_fd(int fd)
 	}
 	
 	// read and compare file
+	uint64_t file_read_size = 0;
 	for(size = 0; size < this->fsize; size += BUF_SIZE) {
-		size_t offset = 0;
-		while(offset < BUF_SIZE) {
-			ssize_t len;
-			len = read(fd, &buff[offset], BUF_SIZE - offset);
-			if (len < 0) {
+		size_t buf_offset = 0;
+		while (buf_offset < BUF_SIZE) {
+			ssize_t read_len;
+			read_len = read(fd, &buff[buf_offset], BUF_SIZE - buf_offset);
+			if (read_len < 0) {
 				cerr << "Read from " << directory->path() 
 					<< fname << " failed: " 
 					<< strerror(errno) << endl;
@@ -273,16 +311,30 @@ int File::check_fd(int fd)
 				goto out;
 			}
 
-			if (len == 0) {
-				cerr << "File smaller than expected: " 
+			file_read_size += read_len;
+
+			if (read_len == 0) {
+				if (file_read_size < this->fsize)
+					cerr << "File smaller than expected: "
+						<< directory->path() << fname << endl;
+				ret = 0;
+				goto out;
+			}
+
+			if (file_read_size > this->fsize) {
+				cerr << "File larger than expected: "
 					<< directory->path() << fname << endl;
 				ret = 0;
 				goto out;
 			}
 
-			offset += len;
-#if DEBUG > 3
-			cout << "Read " << len << "/" << this->fsize << endl;
+
+			buf_offset += read_len;
+#if 0
+			cout << "Read: " << read_len 		<< " " <<
+				"Buf-Offset: "    << buf_offset << " " <<
+				"File-readsize: " << file_read_size << " " <<
+				"File-Size: " << this->fsize << endl;
 #endif
 
 		}
@@ -316,11 +368,11 @@ int File::check_fd(int fd)
 		}
 	}
 
+out:
 	// Try to remove pages from memory to let the kernel re-read the file
 	// on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 
-out:
 	free(bufm);
 	free(buff);
 	RETURN(ret);
@@ -360,11 +412,6 @@ int File::check(void)
 File * File::get_next() const
 {
 	return this->next;
-}
-
-size_t File::get_fsize() const
-{
-	RETURN(this->fsize);
 }
 
 void File::lock(void)

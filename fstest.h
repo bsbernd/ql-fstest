@@ -54,12 +54,7 @@ using namespace std;
 #include "file.h"
 #include "filesystem.h"
 
-
-static int do_exit(const char* func, const char *file, unsigned line, int code)
-{
-	fprintf(stderr, "%s() %s:%d Exit code %d\n", func, file, line, code);
-	exit(code);
-}
+extern int do_exit(const char* func, const char *file, unsigned line, int code);
 
 #if DEBUG > 2
 static inline void print_return(const char* func, const char *file, unsigned line, int value=0)
@@ -85,6 +80,7 @@ static inline void print_return(const char* func, const char *file, unsigned lin
 		return;						\
 	} while (0)
 
+static const uint64_t KILO = 1024;
 static const uint64_t MEGA = 1024 * 1024;
 static const uint64_t GIGA = 1024 * 1024 * 1024;
 

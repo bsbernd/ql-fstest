@@ -1,16 +1,20 @@
 
-CXXFLAGS = -O2 -W -Wall -ggdb  -DFORTIFY_SOURCE=2 #-DDEBUG=1
+FLAGS        = -rdynamic -O2 -W -Wall -ggdb3  -DFORTIFY_SOURCE=2 #-DDEBUG=1
+FFLAGS_DEBUG = -rdynamic -O0 -W -Wall -ggdb3 -DFORTIFY_SOURCE=2 -DDEBUG=1
 CXX = g++
 
 # LDFLAGS=-m32 -static -D_FILE_OFFSET_BITS=64
 LDFLAGS=-D_FILE_OFFSET_BITS=64 -ggdb -O2 -lpthread
 
-FILES = fstest.o dir.o file.o filesystem.o
+FILES = fstest.cc dir.cc file.cc filesystem.cc
 
 all: fstest
 
 fstest: $(FILES)
-	$(CXX) -o $@ $(FILES) $(LDFLAGS)
+	$(CXX) -o $@ $(FILES) $(FLAGS) $(LDFLAGS)
+
+debug: $(FILES)
+	$(CXX) $(FFLAGS_DEBUG) -o fstest $(FILES) $(FFLAGS_DEBUG) $(LDFLAGS)
 
 fstest.o: fstest.cc
 

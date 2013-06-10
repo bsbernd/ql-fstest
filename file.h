@@ -57,18 +57,20 @@ private:
 	union {
 		uint32_t value; // a random integer will be transformed into
 		char checksum[4];    // a checksum
-		
+
 	}id;  // checksum pattern
-	
+
 	pthread_mutex_t mutex;
 	char *time_buf; // for ctime_r(time, time_buf)
 	string create_time; //create time 
-	
+
 	bool sync_failed; // fsync() or close() failed
-	bool has_error; // 
+	bool has_error;
+	bool in_delete; // the write thread is going to delete it, the read thread shall ignore it
+
 public:
 	char fname[9]; // file name
-	File(Dir *dir, size_t fsize);
+	File(Dir *dir);
 
 	~File(void);
 
@@ -84,10 +86,24 @@ public:
 	int  trylock(void);
 	
 	File *get_next(void) const;
-	size_t get_fsize(void) const;
 
 	int num_checks; // how often this file aready has been verified
 	
+	size_t get_fsize() const
+	{
+		return this->fsize;
+	}
+
+	bool is_being_deleted(void)
+	{
+		return this->in_delete;
+	}
+
+	void set_in_delete(void)
+	{
+		this->in_delete = true;
+	}
+
 	
 };
 

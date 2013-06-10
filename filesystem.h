@@ -19,7 +19,7 @@
  *    GNU General Public License for more details.
  *
  *    You should have received a copy of the GNU General Public License
- *    along with this program; if not, write to the Free Software
+ *    along with this program; if not, write_main to the Free Software
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
  *    USA
  *
@@ -43,8 +43,9 @@ private:
 
 	uint64_t fssize;
 	uint64_t fsfree;
-	double fs_use_goal;
-	double goal_percent;
+	uint64_t fsused;
+	uint64_t fs_use_goal;
+	size_t goal_percent;
 	bool was_full;
 	unsigned long last_read_index; // last index read in
 	
@@ -52,7 +53,7 @@ private:
 	StatsStamp stats_now;
 	StatsStamp stats_all;
 	
-	void update_stats(void);
+	void update_stats(bool size_only);
 	void free_space(size_t fsize);
 	
 	volatile bool error_detected;
@@ -60,20 +61,29 @@ private:
 	// protect file and directory addition/removal and stats
 	pthread_mutex_t mutex;
 public:
-	Filesystem(string dir, double percent);
+	Filesystem(string dir, size_t percent);
 	~Filesystem(void);
 	
-	void write(void);
-	void read_loop(void);
+	void write_main(void);
+	void read_main(void);
 	
 	// Global options
 	vector<Dir*> all_dirs;
 	vector<Dir*> active_dirs;
 	vector<File*> files;
+	vector<File*>::iterator file_iter;
 
 	void lock(void);
 	void unlock(void);
 	int  trylock(void);
+
+private:
+
+
+	File *get_file_locked(unsigned idx)
+	{
+		return this->files.at(idx);
+	}
 };
 
 #endif // __FILESYSTEM_H__

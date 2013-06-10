@@ -44,19 +44,19 @@ public:
 	}
 
 private:
-	double usage_percent; // max fill level
+	size_t usage_percent; // max fill level
 	bool immediate_check;
 	string testdir;
 	int min_size_bits;
 	int max_size_bits;
 
 public:
-	void set_usage(double value)
+	void set_usage(size_t value)
 	{
 		this->usage_percent = value;
 	}
 
-	double get_usage(void)
+	size_t get_usage(void)
 	{
 		return this->usage_percent;
 	}

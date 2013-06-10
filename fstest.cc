@@ -19,16 +19,31 @@
  *    GNU General Public License for more details.
  *
  *    You should have received a copy of the GNU General Public License
- *    along with this program; if not, write to the Free Software
+ *    along with this program; if not, write_main to the Free Software
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307
  *    USA
  *
  ************************************************************************/
+#include <execinfo.h>
 
 #include "fstest.h"
 #include "config.h"
 
 static Config_fstest global_cfg;
+
+#define BACKTRACE_MAX_SIZE 1024 * 1024
+static void* backtrace_buffer[BACKTRACE_MAX_SIZE];
+
+int do_exit(const char* func, const char *file, unsigned line, int code)
+{
+	int err_fd = fileno(stderr);
+
+	int trace_len = backtrace(backtrace_buffer, BACKTRACE_MAX_SIZE);
+	backtrace_symbols_fd(backtrace_buffer, trace_len, err_fd);
+
+	fprintf(stderr, "%s() %s:%d Exit code %d\n", func, file, line, code);
+	exit(code);
+}
 
 /**
  * Return the program wide configuration
@@ -59,19 +74,19 @@ void usage(ostream &out)
 	
 }
 
-/* Start the write thread here */
+/* Start the write_main thread here */
 void *run_write_thread(void *arg)
 {
 	Filesystem* t =  (Filesystem *) arg;
-	t->write();
+	t->write_main();
 	return NULL;
 }
 
-/* Start the write thread here */
+/* Start the write_main thread here */
 void *run_read_thread(void *arg)
 {
 	Filesystem* t =  (Filesystem *) arg;
-	t->read_loop();
+	t->read_main();
 	return NULL;
 }
 
@@ -79,7 +94,7 @@ void *run_read_thread(void *arg)
 void start_threads(void)
 {
 	string dir = global_cfg.get_testdir();
-	double goal_percent = global_cfg.get_usage();
+	size_t goal_percent = global_cfg.get_usage();
 
 	Filesystem * filesystem = new Filesystem(dir, goal_percent);
 	
@@ -131,7 +146,6 @@ int main(int argc, char * const argv[])
 	int longindex = 0;
 
 	// Arguments
-	double percent = 0.9;
 	string testdir = "";
 
 	while((res = getopt_long(argc, argv, optstring, longopts, &longindex)) != -1) {
@@ -148,7 +162,7 @@ int main(int argc, char * const argv[])
 			EXIT(1);
 			break;
 		case 'p':
-			global_cfg.set_usage(strtod(optarg, NULL) / 100);
+			global_cfg.set_usage(atoi(optarg) );
 			break;
 		case 1:
 			global_cfg.set_min_size_bits(atoi(optarg));
@@ -194,7 +208,6 @@ int main(int argc, char * const argv[])
 
 	cout << "fstest v0.1\n";
 	cout << "Directory           : " << ((testdir == "" ) ? "./" : testdir) << endl;
-	cout << "Goal percentage used: " << percent * 100 << endl;
 
 	start_threads();
 
