@@ -315,15 +315,20 @@ int File::check_fd(int fd)
 
 			if (read_len == 0) {
 				if (file_read_size < this->fsize)
-					cerr << "File smaller than expected: "
-						<< directory->path() << fname << endl;
+					cerr << "File smaller than expected: " <<
+						directory->path() << fname 	<<
+						" expected: " << this->fsize	<<
+						" got: " << file_read_size <<endl;
 				ret = 0;
 				goto out;
 			}
 
 			if (file_read_size > this->fsize) {
-				cerr << "File larger than expected: "
-					<< directory->path() << fname << endl;
+				if (file_read_size < this->fsize)
+					cerr << "File larger than expected: " <<
+						directory->path() << fname 	<<
+						" expected: " << this->fsize	<<
+						" got: " << file_read_size <<endl;
 				ret = 0;
 				goto out;
 			}
