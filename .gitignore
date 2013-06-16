@@ -1,6 +1,3 @@
-syntax: glob
-
-
 cscope*
 *.tags
 *.workspace*
@@ -82,10 +79,4 @@ Doxyfile
 org.eclipse.cdt.codan.core.prefs
 .cdt*
 
-
-# Entries better done as regexp's to avoid matching too broadly
-syntax: regexp
-^config\.*
-README$
-Makefile$
 
