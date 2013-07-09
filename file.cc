@@ -38,9 +38,6 @@ using namespace std;
 
 File::File(Dir *dir)
 {
-
-
-	this->fsize = fsize;
 	this->directory = dir;
 	this->prev = NULL;
 	this->next = NULL;

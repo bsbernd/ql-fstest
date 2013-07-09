@@ -28,8 +28,6 @@
 #ifndef __FSTEST_H__
 #define __FSTEST_H__
 
-using namespace std;
-
 #include <unistd.h>
 #include <getopt.h>
 #include <stdlib.h>
@@ -50,9 +48,13 @@ using namespace std;
 #include <cstring>
 #include <stdint.h>
 
+using namespace std;
+
 #include "dir.h"
 #include "file.h"
 #include "filesystem.h"
+
+
 
 extern int do_exit(const char* func, const char *file, unsigned line, int code);
 
