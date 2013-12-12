@@ -184,6 +184,8 @@ void Filesystem::free_space(size_t fsize)
 			if (file->check() ) {
 				this->error_detected = true;
 				// we exit the write_main thread
+
+				file->unlock();
 				pthread_exit(NULL);
 			}
 			// cout << "Unlink check done: " << fname << endl;
