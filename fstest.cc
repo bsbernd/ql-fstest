@@ -66,12 +66,13 @@ void usage(ostream &out)
 	out << endl;
 	out << "Options:\n";
 	out << " -p|--percent <percent> - goal percentage used of filesystem [90]." << endl;
+	out << " -t|--timeout <seconds> - goal timeout [-1]." << endl;
 	out << " -i|--immediate         - check files immediately after writing them instead of" << endl
 	    << "                          letting the read-thread do it later on." << endl;
 	out << " --min-bits             - min file size bits 2^n  [20] (1MiB)." << endl;
 	out << " --max-bits             - max file size bits 2^n. [30] (1GiB)." << endl;
 	out << endl;
-	
+
 }
 
 /* Start the write_main thread here */
@@ -97,30 +98,30 @@ void start_threads(void)
 	size_t goal_percent = global_cfg.get_usage();
 
 	Filesystem * filesystem = new Filesystem(dir, goal_percent);
-	
+
 	int rc;
 	pthread_t threads[2];
 	// struct pthread_arg tinfo[2];
-	
-	
+
+
 	// FIXME: We need a pthread wrapper class, our current way is ugly
-	
+
 	int i = 0;
 	rc = pthread_create(&threads[i], NULL, run_write_thread, filesystem);
 	if (rc) {
-		cerr << "Failed to start thread " << i << ": " 
+		cerr << "Failed to start thread " << i << ": "
 			<< strerror(rc) << endl;
 		EXIT(1);
 	}
-	
+
 	i = 1;
 	rc = pthread_create(&threads[i], NULL, run_read_thread, filesystem);
 	if (rc) {
-		cerr << "Failed to start thread " << i << ": " 
+		cerr << "Failed to start thread " << i << ": "
 			<< strerror(rc) << endl;
 		EXIT(1);
 	}
-	
+
 	for (i = 0; i < 2; i++)
 		pthread_join(threads[i], NULL);
 		cout << "Thread " << i << "finished" << endl;
@@ -134,11 +135,12 @@ int main(int argc, char * const argv[])
 	cmd = argv[0];
 
 	// Getopt stuff
-	const char optstring[] = "hip:";
+	const char optstring[] = "hip:t:";
 	const struct option longopts[] = {
 		{ "help"     , 0, NULL, 'h' },
 		{ "immediate", 0, NULL, 'i' },
 		{ "percent"  , 1, NULL, 'p' },
+		{ "timeout"  , 1, NULL, 't' },
 		{ "min-bits" , 1, NULL,  1  },
 		{ "max-bits" , 1, NULL,  2  },
 		{ NULL       , 0, NULL,  0  }
@@ -163,6 +165,9 @@ int main(int argc, char * const argv[])
 			break;
 		case 'p':
 			global_cfg.set_usage(atoi(optarg) );
+			break;
+		case 't':
+			global_cfg.set_timeout(atoi(optarg) );
 			break;
 		case 1:
 			global_cfg.set_min_size_bits(atoi(optarg));

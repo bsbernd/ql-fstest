@@ -36,7 +36,7 @@ struct StatsStamp {
 	uint64_t num_files, num_read_files, num_written_files;
 };
 
-class Filesystem 
+class Filesystem
 {
 private:
 	Dir *root_dir;
@@ -48,25 +48,26 @@ private:
 	size_t goal_percent;
 	bool was_full;
 	unsigned long last_read_index; // last index read in
-	
+
 	StatsStamp stats_old;
 	StatsStamp stats_now;
 	StatsStamp stats_all;
-	
+
 	void update_stats(bool size_only);
 	void free_space(size_t fsize);
-	
+
 	volatile bool error_detected;
-		
+	volatile bool terminated;
+
 	// protect file and directory addition/removal and stats
 	pthread_mutex_t mutex;
 public:
 	Filesystem(string dir, size_t percent);
 	~Filesystem(void);
-	
+
 	void write_main(void);
 	void read_main(void);
-	
+
 	// Global options
 	vector<Dir*> all_dirs;
 	vector<Dir*> active_dirs;
@@ -76,6 +77,8 @@ public:
 	void lock(void);
 	void unlock(void);
 	int  trylock(void);
+
+	void check_terminate_and_sleep(unsigned int seconds);
 
 private:
 

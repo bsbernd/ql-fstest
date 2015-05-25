@@ -26,6 +26,7 @@
 #define CONFIG_H_
 
 #define MAX_USAGE_PERCENT 90 // fill file system up to this level
+#define TIMEOUT -1 // timeout before leaving
 
 // file sizes between min and max
 #define DEFAULT_MIN_SIZE_BITS 20 // 2^20 = 1MiB
@@ -37,14 +38,16 @@ public:
 	Config_fstest(void)
 	{
 		this->usage_percent = MAX_USAGE_PERCENT;
+		this->timeout       = TIMEOUT;
 		this->immediate_check = false;
 		this->testdir = "";
-		this->min_size_bits = 20; 
-		this->max_size_bits = 30; 
+		this->min_size_bits = 20;
+		this->max_size_bits = 30;
 	}
 
 private:
 	size_t usage_percent; // max fill level
+	ssize_t timeout; // in seconds
 	bool immediate_check;
 	string testdir;
 	int min_size_bits;
@@ -59,6 +62,16 @@ public:
 	size_t get_usage(void)
 	{
 		return this->usage_percent;
+	}
+
+	void set_timeout(ssize_t value)
+	{
+		this->timeout = value;
+	}
+
+	ssize_t get_timeout(void)
+	{
+		return this->timeout;
 	}
 
 	void set_immediate_check(bool value)

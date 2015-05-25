@@ -43,6 +43,7 @@ Filesystem::Filesystem(string dir, size_t percent)
 	this->goal_percent = percent;
 	pthread_mutex_init(&this->mutex, NULL);
 	this->error_detected = false;
+	this->terminated = false;
 
 	// Create working dir
 	root_dir = new Dir(dir, this);
@@ -58,13 +59,13 @@ Filesystem::Filesystem(string dir, size_t percent)
 
 
 	if ( (fssize - fsfree) >= this->fs_use_goal) {
-		cerr 	<< "Error: Filesystem already above % used goal: " 
+		cerr 	<< "Error: Filesystem already above % used goal: "
 			<< this->fsused * 100.0 / fssize << " >= "
 			<< goal_percent << endl;
 		exit(1);
 	}
-	
-	
+
+
 	was_full = false;
 }
 
@@ -79,7 +80,16 @@ Filesystem::~Filesystem(void)
 	pthread_mutex_destroy(&this->mutex);
 }
 
-/* Update statistics about this filesystem 
+void Filesystem::check_terminate_and_sleep(unsigned seconds)
+{
+	if (this->terminated)
+		pthread_exit(NULL);
+
+	sleep(seconds);
+}
+
+
+/* Update statistics about this filesystem
  * Filesystem has to be locked */
 void Filesystem::update_stats(bool size_only)
 {
@@ -125,7 +135,7 @@ void Filesystem::update_stats(bool size_only)
  */
 void Filesystem::free_space(size_t fsize)
 {
-	if (this->error_detected)
+	if (this->error_detected || this->terminated)
 		pthread_exit(NULL); // Don't delete anything, just exit immediately
 
 	this->update_stats(true);
@@ -223,10 +233,12 @@ void Filesystem::write_main(void)
 	int level = 1;
 	int max_files = 1;
 	new Dir(root_dir, 1);
+	ssize_t timeout = get_global_cfg()->get_timeout();
+
 	cout << "Starting test       : " << ctime(&stats_old.time);
 
 
-	while(this->error_detected == false) {
+	while((this->error_detected == false) && (this->terminated == false)) {
 		// cout << "all_dirs: " << all_dirs.size() << endl;
 		// cout << "active_dirs: " << active_dirs.size() << endl;
 
@@ -277,16 +289,23 @@ void Filesystem::write_main(void)
 			double write = (stats_now.write - stats_old.write) / t / MEGA;
 			double read = (stats_now.read - stats_old.read) / t / MEGA;
 			double files = (stats_now.num_files - stats_old.num_files) / t;
-			cout << stats_now.time << " write: " << stats_now.write / GIGA 
-				<< " GiB [" << write << " MiB/s] read: " << stats_now.read / GIGA 
-				<< " GiB [" << read << " MiB/s] Files: " << stats_now.num_files 
+			cout << stats_now.time << " write: " << stats_now.write / GIGA
+				<< " GiB [" << write << " MiB/s] read: " << stats_now.read / GIGA
+				<< " GiB [" << read << " MiB/s] Files: " << stats_now.num_files
 				<< " [" << files << " files/s] # " << ctime(&stats_now.time)
 				<< " idx write: " << this->files.size()
-				<< " idx read: " << this->last_read_index 
+				<< " idx read: " << this->last_read_index
 				<< endl;
 
 			cout.flush();
 			this->update_stats(false);
+		}
+
+		// Check if the timeout is reached
+		ssize_t elapsed_time = (stats_all.time ? stats_all.time : stats_old.time);
+		if ((timeout != -1) && (stats_now.time - elapsed_time > timeout)) {
+			cout << "Timeout reached. Now leaving!" << endl;
+			this->terminated = true;
 		}
 
 		// cout << "UnLock file sytem" << endl;
@@ -297,14 +316,17 @@ void Filesystem::write_main(void)
 		// of 20 files
 		if (!this->was_full) {
 			while (this->last_read_index + 100 < this->files.size())
-				sleep(1);
+				check_terminate_and_sleep(1);
 		} else {
 			while  (this->stats_now.num_written_files > this->stats_now.num_read_files + 20)
-				sleep(1);
+				check_terminate_and_sleep(1);
 		}
 	}
 
-	cout << "Error detected, leaving write thread!" << endl;
+	if (this->error_detected)
+		cout << "Error detected, leaving write thread!" << endl;
+
+	pthread_exit(NULL);
 }
 
 /* Read from the beginning to the end, if end is reached
@@ -319,7 +341,7 @@ start_again:
 	while (this->files.size() < 2) {
 		this->unlock();
 		pthread_yield();
-		sleep (1);
+		check_terminate_and_sleep(1);
 		goto start_again;
 	}
 
@@ -346,6 +368,9 @@ start_again:
 		if (file->check() )
 			this->error_detected = true;
 
+		if (this->terminated)
+			pthread_exit(NULL);
+
 		file->unlock();
 
 		this->lock();
@@ -362,7 +387,9 @@ newindex:
 			while (index + 20 >= this->files.size()) {
 				// we want writes to be slightly ahead of reads
 				// due to the page cache
-				sleep(1); // give it some time to write_main new data
+
+				// give it some time to write_main new data
+				check_terminate_and_sleep(1);
 				if (this->was_full) {
 					// Filesystem was full
 					cout << "Re-starting to read from index 0 (was "
@@ -401,8 +428,8 @@ newindex:
 		this->unlock();
 		file = tmp;
 	}
-	
-	
+
+
 }
 
 
