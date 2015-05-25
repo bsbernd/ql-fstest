@@ -234,6 +234,7 @@ void Filesystem::write_main(void)
 	int max_files = 1;
 	new Dir(root_dir, 1);
 	ssize_t timeout = get_global_cfg()->get_timeout();
+	stats_all.time = time(NULL);
 
 	cout << "Starting test       : " << ctime(&stats_old.time);
 
@@ -302,8 +303,7 @@ void Filesystem::write_main(void)
 		}
 
 		// Check if the timeout is reached
-		ssize_t elapsed_time = (stats_all.time ? stats_all.time : stats_old.time);
-		if ((timeout != -1) && (stats_now.time - elapsed_time > timeout)) {
+		if ((timeout != -1) && (stats_now.time - stats_all.time > timeout)) {
 			cout << "Timeout reached. Now leaving!" << endl;
 			this->terminated = true;
 		}
