@@ -34,6 +34,8 @@ static Config_fstest global_cfg;
 #define BACKTRACE_MAX_SIZE 1024 * 1024
 static void* backtrace_buffer[BACKTRACE_MAX_SIZE];
 
+
+
 int do_exit(const char* func, const char *file, unsigned line, int code)
 {
 	int err_fd = fileno(stderr);
@@ -65,6 +67,8 @@ void usage(ostream &out)
 	out << cmd << " [options] [<dir>] - directory on filesystem to test in." << endl;
 	out << endl;
 	out << "Options:\n";
+	out << " -f|--max_files <int>   - maximum number of files created [" <<
+			                          global_cfg.get_default_max_files() << "]" << endl;
 	out << " -p|--percent <percent> - goal percentage used of filesystem [90]." << endl;
 	out << " -t|--timeout <seconds> - goal timeout [-1]." << endl;
 	out << " -i|--immediate         - check files immediately after writing them instead of" << endl
@@ -135,7 +139,7 @@ int main(int argc, char * const argv[])
 	cmd = argv[0];
 
 	// Getopt stuff
-	const char optstring[] = "hip:t:";
+	const char optstring[] = "f:hip:t:";
 	const struct option longopts[] = {
 		{ "help"     , 0, NULL, 'h' },
 		{ "immediate", 0, NULL, 'i' },
@@ -143,6 +147,7 @@ int main(int argc, char * const argv[])
 		{ "timeout"  , 1, NULL, 't' },
 		{ "min-bits" , 1, NULL,  1  },
 		{ "max-bits" , 1, NULL,  2  },
+		{ "max-files", 1, NULL, 'f' },
 		{ NULL       , 0, NULL,  0  }
 	};
 	int longindex = 0;
@@ -163,6 +168,13 @@ int main(int argc, char * const argv[])
 			usage(cerr);
 			EXIT(1);
 			break;
+		case 'f':
+			global_cfg.set_max_files(atoi(optarg) );
+			if (global_cfg.get_max_files() < QL_FSTEST_MIN_NUM_FILES)
+				cerr <<  "Max files is too small: "
+					 << global_cfg.get_max_files() << " vs. "
+					 << QL_FSTEST_MIN_NUM_FILES;
+			break;
 		case 'p':
 			global_cfg.set_usage(atoi(optarg) );
 			break;
@@ -175,7 +187,7 @@ int main(int argc, char * const argv[])
 		case 2: global_cfg.set_max_size_bits(atoi(optarg));
 			break;
 		default:
-			printf ("Error: unknown option '%c'\n", res);
+			fprintf (stderr, "Error: unknown option '%c'\n", res);
 			usage(cerr);
 			EXIT(1);
 		}

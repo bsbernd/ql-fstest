@@ -54,7 +54,7 @@ using namespace std;
 #include "file.h"
 #include "filesystem.h"
 
-
+#define QL_FSTEST_MIN_NUM_FILES 2
 
 extern int do_exit(const char* func, const char *file, unsigned line, int code);
 

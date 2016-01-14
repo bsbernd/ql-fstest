@@ -46,6 +46,7 @@ private:
 	uint64_t fsused;
 	uint64_t fs_use_goal;
 	size_t goal_percent;
+	size_t max_files;
 	bool was_full;
 	unsigned long last_read_index; // last index read in
 

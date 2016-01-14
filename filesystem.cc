@@ -44,6 +44,7 @@ Filesystem::Filesystem(string dir, size_t percent)
 	pthread_mutex_init(&this->mutex, NULL);
 	this->error_detected = false;
 	this->terminated = false;
+	this->max_files = get_global_cfg()->get_max_files();
 
 	// Create working dir
 	root_dir = new Dir(dir, this);
@@ -142,8 +143,9 @@ void Filesystem::free_space(size_t fsize)
 
 	int retry_count = 0;
 
-	while(this->fsused + (uint64_t) fsize > this->fs_use_goal
-		&& this->files.size() > 2)
+	while ((this->fsused + (uint64_t) fsize > this->fs_use_goal
+		    && this->files.size() > QL_FSTEST_MIN_NUM_FILES) ||
+		  this->files.size() > this->max_files)
 	{
 		retry_count++;
 
@@ -160,9 +162,9 @@ void Filesystem::free_space(size_t fsize)
 			this->unlock();
 			break;
 		}
-		int num = random() % nfiles;
+		int idx = random() % nfiles;
 
-		this->file_iter = this->files.begin() + num;
+		this->file_iter = this->files.begin() + idx;
 		File *file = *this->file_iter;
 
 		// Don't delete a file that is in read or not checked yet

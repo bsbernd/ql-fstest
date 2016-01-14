@@ -30,7 +30,8 @@
 
 // file sizes between min and max
 #define DEFAULT_MIN_SIZE_BITS 20 // 2^20 = 1MiB
-#define DEFAULT MAX_SIZE_BITS 30 // 2^30 = 1GiB
+#define DEFAULT_MAX_SIZE_BITS 30 // 2^30 = 1GiB
+#define DEFAULT_MAX_FILES  -1 // unlimited
 
 
 class Config_fstest {
@@ -41,8 +42,8 @@ public:
 		this->timeout       = TIMEOUT;
 		this->immediate_check = false;
 		this->testdir = "";
-		this->min_size_bits = 20;
-		this->max_size_bits = 30;
+		this->min_size_bits = DEFAULT_MIN_SIZE_BITS;
+		this->max_size_bits = DEFAULT_MAX_FILES;
 	}
 
 private:
@@ -50,8 +51,9 @@ private:
 	ssize_t timeout; // in seconds
 	bool immediate_check;
 	string testdir;
-	int min_size_bits;
-	int max_size_bits;
+	size_t min_size_bits;
+	size_t max_size_bits;
+	size_t max_files;
 
 public:
 	void set_usage(size_t value)
@@ -115,17 +117,30 @@ public:
 		return this->min_size_bits;
 	}
 
-	void set_max_size_bits(int max)
+	void set_max_size_bits(size_t max)
 	{
 		this->max_size_bits = max;
 	}
 
-	int get_max_size_bits(void)
+	size_t get_max_size_bits(void)
 	{
 		return this->max_size_bits;
 	}
 
+	void set_max_files(size_t max_files)
+	{
+		this->max_files = max_files;
+	}
 
+	size_t get_max_files(void)
+	{
+		return this->max_files;
+	}
+
+	ssize_t get_default_max_files(void)
+	{
+		return DEFAULT_MAX_FILES;
+	}
 
 };
 
