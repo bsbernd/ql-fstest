@@ -231,7 +231,6 @@ void Filesystem::free_space(size_t fsize)
 void Filesystem::write_main(void)
 {
 	int level = 1;
-	int max_files = 1;
 	new Dir(root_dir, 1);
 	ssize_t timeout = get_global_cfg()->get_timeout();
 	stats_all.time = time(NULL);
@@ -244,10 +243,10 @@ void Filesystem::write_main(void)
 		// cout << "active_dirs: " << active_dirs.size() << endl;
 
 		// Pick a random directory
-		int num = random() % active_dirs.size();
+		unsigned dir_idx = random() % active_dirs.size();
 		// cout << "Picked " << active_dirs[num]->path() << endl;
 
-		Dir* dir = active_dirs[num];
+		Dir* dir = active_dirs[dir_idx];
 
 		// Create file
 		File *file = new File(dir);
@@ -270,14 +269,11 @@ void Filesystem::write_main(void)
 		// cout << "files: " << files.size() << endl;
 
 		// Remove dir from active_dirs if full
-		if (active_dirs[num]->get_num_files() >= max_files) {
-			this->active_dirs[num] = this->active_dirs[active_dirs.size() - 1];
-			this->active_dirs.resize(this->active_dirs.size() - 1);
-		}
+		if (dir->get_num_files() >= dir->get_max_files())
+			this->active_dirs.erase(this->active_dirs.begin() + dir_idx);
 
 		if (active_dirs.size() == 0) {
 			++level;
-			max_files = level * level;
 			cout << "Going to level " << level << endl;
 			active_dirs = all_dirs;
 			new Dir(root_dir, level);

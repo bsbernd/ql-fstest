@@ -47,8 +47,9 @@
 
 using namespace std;
 
-Dir::Dir(Dir *parent, int num) : parent(parent)
+Dir::Dir(Dir *parent, int level) : parent(parent)
 {
+	this->max_files = level * level;
 	fs = parent->fs;
 	next = parent->sub;
 	sub = NULL;
@@ -56,8 +57,8 @@ Dir::Dir(Dir *parent, int num) : parent(parent)
 	num_files = 0;
 
 	dirname = "d000";
-	dirname[1] = '0' + num / 10;
-	dirname[2] = '0' + num % 10;
+	dirname[1] = '0' + level / 10;
+	dirname[2] = '0' + level % 10;
 
 	parent->sub = this;
 	string dirpath = path();
@@ -71,8 +72,8 @@ Dir::Dir(Dir *parent, int num) : parent(parent)
 	fs->all_dirs.push_back(this);
 	fs->active_dirs.push_back(this);
 
-	while(--num > 0) {
-		new Dir(this, num);
+	while(--level > 0) {
+		new Dir(this, level);
 	}
 }
 

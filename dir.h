@@ -43,6 +43,8 @@ private:
 	string dirname;
 	uint16_t num_files;
 	string root_path;
+	size_t max_files;
+
 public:
 	Filesystem *fs;
 	Dir(Dir *parent, int num);
@@ -56,6 +58,12 @@ public:
 	void remove_file(File *file);
 
 	uint16_t get_num_files(void) const;
+
+
+	size_t get_max_files(void) const
+	{
+		return this->max_files;
+	}
 };
 
 #endif // __DIR_H__ 
