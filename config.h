@@ -44,6 +44,7 @@ public:
 		this->testdir = "";
 		this->min_size_bits = DEFAULT_MIN_SIZE_BITS;
 		this->max_size_bits = DEFAULT_MAX_FILES;
+		this->error_stop = false;
 	}
 
 private:
@@ -54,6 +55,7 @@ private:
 	size_t min_size_bits;
 	size_t max_size_bits;
 	size_t max_files;
+	bool error_stop; // stop on first error
 
 public:
 	void set_usage(size_t value)
@@ -140,6 +142,16 @@ public:
 	ssize_t get_default_max_files(void)
 	{
 		return DEFAULT_MAX_FILES;
+	}
+
+	void set_error_immediate_stop(void)
+	{
+		this->error_stop = true;
+	}
+
+	bool get_error_immediate_stop()
+	{
+		return this->error_stop;
 	}
 
 };

@@ -75,6 +75,8 @@ void usage(ostream &out)
 	    << "                          letting the read-thread do it later on." << endl;
 	out << " --min-bits             - min file size bits 2^n  [20] (1MiB)." << endl;
 	out << " --max-bits             - max file size bits 2^n. [30] (1GiB)." << endl;
+	out << " --error-stop           - stop on first error instead of further" << endl;
+	out << "                          (and endless) checking for more corruptions." << endl;
 	out << endl;
 
 }
@@ -141,14 +143,15 @@ int main(int argc, char * const argv[])
 	// Getopt stuff
 	const char optstring[] = "f:hip:t:";
 	const struct option longopts[] = {
-		{ "help"     , 0, NULL, 'h' },
-		{ "immediate", 0, NULL, 'i' },
-		{ "percent"  , 1, NULL, 'p' },
-		{ "timeout"  , 1, NULL, 't' },
-		{ "min-bits" , 1, NULL,  1  },
-		{ "max-bits" , 1, NULL,  2  },
-		{ "max-files", 1, NULL, 'f' },
-		{ NULL       , 0, NULL,  0  }
+		{ "help"     ,  0, NULL, 'h' },
+		{ "error-stop", 0, NULL, 3  },
+		{ "immediate",  0, NULL, 'i' },
+		{ "percent"  ,  1, NULL, 'p' },
+		{ "timeout"  ,  1, NULL, 't' },
+		{ "min-bits" ,  1, NULL,  1  },
+		{ "max-bits" ,  1, NULL,  2  },
+		{ "max-files",  1, NULL, 'f' },
+		{ NULL       ,  0, NULL,  0  }
 	};
 	int longindex = 0;
 
@@ -185,6 +188,9 @@ int main(int argc, char * const argv[])
 			global_cfg.set_min_size_bits(atoi(optarg));
 			break;
 		case 2: global_cfg.set_max_size_bits(atoi(optarg));
+			break;
+		case 3:
+			global_cfg.set_error_immediate_stop();
 			break;
 		default:
 			fprintf (stderr, "Error: unknown option '%c'\n", res);

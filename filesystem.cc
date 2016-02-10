@@ -322,7 +322,16 @@ void Filesystem::write_main(void)
 	}
 
 	if (this->error_detected)
-		cout << "Error detected, leaving write thread!" << endl;
+	{
+		if (!(get_global_cfg()->get_error_immediate_stop()))
+			cout << "Error detected, leaving write thread!" << endl;
+		else
+		{
+			cout << "Error detected, aborting!" << endl;
+			exit(EXIT_FAILURE);
+		}
+
+	}
 
 	pthread_exit(NULL);
 }
@@ -364,7 +373,15 @@ start_again:
 		}
 
 		if (file->check() )
+		{
 			this->error_detected = true;
+
+			if (get_global_cfg()->get_error_immediate_stop())
+			{
+				cout << "Error detected, aborting!" << endl;
+				exit(EXIT_FAILURE);
+			}
+		}
 
 		if (this->terminated)
 			pthread_exit(NULL);
