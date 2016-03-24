@@ -64,7 +64,7 @@ void usage(ostream &out)
 {
 	out << endl;
 	out << cmd << " -h|--help         - show help." << endl;
-	out << cmd << " [options] [<dir>] - directory on filesystem to test in." << endl;
+	out << cmd << " [options] <dir> - directory on filesystem to test in." << endl;
 	out << endl;
 	out << "Options:\n";
 	out << " -f|--max_files <int>   - maximum number of files created [" <<
@@ -216,21 +216,25 @@ int main(int argc, char * const argv[])
 	}
 
 	// Check that testdir exists and is a directory
-	if (testdir.length() > 0) {
-		if (stat(testdir.c_str(), &statbuf) != 0) {
-			perror(testdir.c_str());
-			EXIT(1);
-		}
-		if (!S_ISDIR(statbuf.st_mode)) {
-			cerr << "Error: " << testdir << " is not a directory.\n";
-			EXIT(1);
-		}
+	if (testdir.length() == 0) {
+		cerr << "Error: " << "please specify test directory\n";
+		EXIT(1);
+	}
+
+	if (stat(testdir.c_str(), &statbuf) != 0) {
+		perror(testdir.c_str());
+		EXIT(1);
+	}
+
+	if (!S_ISDIR(statbuf.st_mode)) {
+		cerr << "Error: " << testdir << " is not a directory\n";
+		EXIT(1);
 	}
 
 	global_cfg.set_testdir(testdir);
 
 	cout << "fstest v0.1\n";
-	cout << "Directory           : " << ((testdir == "" ) ? "./" : testdir) << endl;
+	cout << "Directory           : " << testdir << endl;
 
 	start_threads();
 
