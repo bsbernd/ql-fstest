@@ -128,9 +128,10 @@ void start_threads(void)
 		EXIT(1);
 	}
 
-	for (i = 0; i < 2; i++)
+	for (i = 0; i < 2; i++) {
 		pthread_join(threads[i], NULL);
 		cout << "Thread " << i << "finished" << endl;
+	}
 }
 
 int main(int argc, char * const argv[])
