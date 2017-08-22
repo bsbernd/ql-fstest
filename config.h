@@ -31,7 +31,6 @@
 // file sizes between min and max
 #define DEFAULT_MIN_SIZE_BITS 20 // 2^20 = 1MiB
 #define DEFAULT_MAX_SIZE_BITS 30 // 2^30 = 1GiB
-#define DEFAULT_MAX_FILES  -1 // unlimited
 
 
 class Config_fstest {
@@ -43,8 +42,9 @@ public:
 		this->immediate_check = false;
 		this->testdir = "";
 		this->min_size_bits = DEFAULT_MIN_SIZE_BITS;
-		this->max_size_bits = DEFAULT_MAX_FILES;
+		this->max_size_bits = DEFAULT_MAX_SIZE_BITS;
 		this->error_stop = false;
+		this->max_files = QL_FSTEST_DEFAULT_NUM_FILES;
 	}
 
 private:
@@ -141,7 +141,7 @@ public:
 
 	ssize_t get_default_max_files(void)
 	{
-		return DEFAULT_MAX_FILES;
+		return QL_FSTEST_DEFAULT_NUM_FILES;
 	}
 
 	void set_error_immediate_stop(void)

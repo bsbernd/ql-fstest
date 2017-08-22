@@ -67,7 +67,7 @@ void usage(ostream &out)
 	out << cmd << " [options] <dir> - directory on filesystem to test in." << endl;
 	out << endl;
 	out << "Options:\n";
-	out << " -f|--max_files <int>   - maximum number of files created [" <<
+	out << " -f|--max-files <int>   - maximum number of files created [" <<
 			                          global_cfg.get_default_max_files() << "]" << endl;
 	out << " -p|--percent <percent> - goal percentage used of filesystem [90]." << endl;
 	out << " -t|--timeout <seconds> - goal timeout [-1]." << endl;
@@ -130,7 +130,7 @@ void start_threads(void)
 
 	for (i = 0; i < 2; i++) {
 		pthread_join(threads[i], NULL);
-		cout << "Thread " << i << "finished" << endl;
+		cout << "Thread " << i << " finished" << endl;
 	}
 }
 
@@ -174,10 +174,6 @@ int main(int argc, char * const argv[])
 			break;
 		case 'f':
 			global_cfg.set_max_files(atoi(optarg) );
-			if (global_cfg.get_max_files() < QL_FSTEST_MIN_NUM_FILES)
-				cerr <<  "Max files is too small: "
-					 << global_cfg.get_max_files() << " vs. "
-					 << QL_FSTEST_MIN_NUM_FILES;
 			break;
 		case 'p':
 			global_cfg.set_usage(atoi(optarg) );
@@ -196,7 +192,7 @@ int main(int argc, char * const argv[])
 		default:
 			fprintf (stderr, "Error: unknown option '%c'\n", res);
 			usage(cerr);
-			EXIT(1);
+			exit(1);
 		}
 	}
 
@@ -213,24 +209,33 @@ int main(int argc, char * const argv[])
 		}
 		cerr << endl;
 		usage(cerr);
-		EXIT(1);
+		exit(1);
 	}
 
 	// Check that testdir exists and is a directory
 	if (testdir.length() == 0) {
 		cerr << "Error: " << "please specify test directory\n";
-		EXIT(1);
+		exit(1);
 	}
 
 	if (stat(testdir.c_str(), &statbuf) != 0) {
 		perror(testdir.c_str());
-		EXIT(1);
+		exit(1);
 	}
 
 	if (!S_ISDIR(statbuf.st_mode)) {
 		cerr << "Error: " << testdir << " is not a directory\n";
-		EXIT(1);
+		exit(1);
 	}
+
+	if (global_cfg.get_max_files() < QL_FSTEST_MIN_NUM_FILES)
+	{
+		cerr <<  "Max files is too small: "
+			 << global_cfg.get_max_files() << " vs. "
+			 << QL_FSTEST_MIN_NUM_FILES << std::endl;
+		exit(1);
+	}
+
 
 	global_cfg.set_testdir(testdir);
 

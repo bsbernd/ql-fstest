@@ -86,7 +86,7 @@ void Filesystem::check_terminate_and_sleep(unsigned seconds)
 	if (this->terminated)
 		pthread_exit(NULL);
 
-	sleep(seconds);
+	usleep(seconds * 1E6);
 }
 
 
@@ -301,7 +301,10 @@ void Filesystem::write_main(void)
 		}
 
 		// Check if the timeout is reached
-		if ((timeout != -1) && (stats_now.time - stats_all.time > timeout)) {
+		ssize_t passed_time = stats_now.time - stats_all.time;
+		//cout << "Init-t: "  << stats_all.time << " now-t: " << stats_now.time
+        //             << " passed-t: " << passed_time << " timeout: " << timeout << std::endl;
+		if ((timeout != -1) && (passed_time > timeout)) {
 			cout << "Timeout reached. Now leaving!" << endl;
 			this->terminated = true;
 		}
