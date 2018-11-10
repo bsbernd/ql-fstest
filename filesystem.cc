@@ -49,6 +49,10 @@ Filesystem::Filesystem(string dir, size_t percent)
 	// Create working dir
 	root_dir = new Dir(dir, this);
 	memset(&stats_all, 0, sizeof(stats_all));
+
+	this->fsfree = 0;
+	this->fssize = 0;
+	this->fsused = 0;
 	this->update_stats(false);
 
 	this->fs_use_goal = (this->fssize * percent) / 100;
