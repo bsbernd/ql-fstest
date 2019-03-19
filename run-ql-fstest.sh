@@ -4,6 +4,7 @@ set -e
 
 CWD=$(realpath $(dirname $0))
 PID=$$
+nproc=8
 
 theusage()
 {
@@ -12,7 +13,7 @@ run-ql-fstest.sh [options ] -d <targetdir>
 options:
 -d <target-dir>         Dir to run ql-fstest in
 -e                      Stop on error - fail immediately
--n <num_processes>      Number of processes to start, defaults to 1
+-n <num_processes>      Number of processes to start, defaults to ${nproc}
 -p <fill-level>         File system fill level, ql-fstest will write data up
                         to that level (approximate, with multiple processes),
                         defaults to 90
@@ -25,7 +26,6 @@ EOF
 opts=""
 
 targetdir=""
-nproc=1
 
 while getopts "d:en:p:t:h" opt; do
     case $opt in

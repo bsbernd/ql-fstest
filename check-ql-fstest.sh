@@ -17,4 +17,4 @@ for i in $dir/fstest-*.err; do
     fi
 done
 
-exit $is_error
+exit ${is_error}
