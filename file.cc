@@ -311,12 +311,14 @@ int File::check_fd(int fd)
 			file_read_size += read_len;
 
 			if (read_len == 0) {
-				if (file_read_size < this->fsize)
+				if (file_read_size < this->fsize) {
 					cerr << "File smaller than expected: " <<
 						directory->path() << fname 	<<
 						" expected: " << this->fsize	<<
 						" got: " << file_read_size <<endl;
-				ret = 0;
+					ret = 1; /* switch to ro mode */
+				} else
+					ret = 0;
 				goto out;
 			}
 
