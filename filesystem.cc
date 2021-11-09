@@ -354,7 +354,7 @@ start_again:
 	// wait until the 2nd file is being written
 	while (this->files.size() < 2) {
 		this->unlock();
-		pthread_yield();
+		sched_yield();
 		check_terminate_and_sleep(1);
 		goto start_again;
 	}
