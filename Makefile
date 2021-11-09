@@ -1,5 +1,5 @@
 
-CXXFLAGS = -O2 -W -Wall -ggdb  -DFORTIFY_SOURCE=2 #-DDEBUG
+CXXFLAGS = -O2 -W -Wall -ggdb  -DFORTIFY_SOURCE=2 #-DDEBUG=1
 CXX = g++
 
 # LDFLAGS=-m32 -static -D_FILE_OFFSET_BITS=64

@@ -32,14 +32,16 @@ const size_t BUF_SIZE = 1024*1024; // Must be power of 2
 
 using namespace std;
 
-File::File(Dir *dir, size_t fsize) : fsize(fsize)
+File::File(Dir *dir, size_t fsize) 
 {
-	directory = dir;
-	prev = NULL;
-	next = NULL;
-	num_checks = 0;
-	sync_failed = false;
-	has_error = false;
+	this->fsize = fsize;
+	this->directory = dir;
+	this->prev = NULL;
+	this->next = NULL;
+	this->num_checks = 0;
+	this->sync_failed = false;
+	this->has_error = false;
+
 	pthread_mutex_init(&this->mutex, NULL);
 	
 	// No need to lock the file here, as it is not globally known yet 
@@ -86,7 +88,7 @@ void File::fwrite(void)
 	int rc;
 	string path = directory->path();
 
-	fd = open((path + this->fname).c_str(), O_WRONLY);
+	fd = open((path + this->fname).c_str(), O_RDWR);
 	if (fd == -1) {
 		std::cerr << "Writing file " << path << fname;
 		perror(" : ");
@@ -118,27 +120,19 @@ void File::fwrite(void)
 	for(size = 0; size < this->fsize; size += BUF_SIZE) {
 		size_t offset = 0;
 		while(offset < BUF_SIZE) {
-			ssize_t len;
-#ifdef DEBUG
-			cout << "Write " << path << this->fname 
-				<< " at " << offset << std::endl;
-#endif
-			if ((len = write(fd, &buf[offset], BUF_SIZE - offset)) < 0) {
+			ssize_t write_len = write(fd, &buf[offset], BUF_SIZE - offset);
+			if (write_len < 0) {
 				if (errno == ENOSPC) {
 					cout << path << fname 
 						<< ": Out of disk space, "
 						<< "probably a race with another thread" << endl;
 					goto out;
 				}
-				if(errno == EIO) {
-					cout << path << fname << " : IO error. A Lustre eviction?" << endl;
-					goto out;
-				}
 				cerr << "Write to " << path << fname << " failed";
 				perror(" : ");
 				EXIT(1);
 			}
-			offset += len;
+			offset += write_len;
 		}
 	}
 
@@ -150,9 +144,16 @@ out:
 			<< strerror(errno) <<endl;
 		this->sync_failed = true;
 	}
+	
+
 	// Try to remove pages from memory to let the kernel re-read the file
 	// from disk on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+
+	errno = 0; // reset errno
+	lseek(fd, 0, SEEK_SET);
+	this->check_fd(fd); // immediately check the file now, TODO: make this an option
+
 	rc = close(fd);
 	if (rc) {
 		cerr << "close() " << path << this->fname 
@@ -161,6 +162,7 @@ out:
 		this->sync_failed = true;
 	}
 	free(buf);
+
 }
 
 
@@ -177,7 +179,7 @@ File::~File(void)
 		cout << "Refusing to delete " 
 			<< this->directory->path() + this->fname << endl;
 		this->unlock();
-		return;
+		RETURNV;
 	}
 
 	// Remove from dir
@@ -223,32 +225,12 @@ void File::unlink()
 	prev = next = NULL;
 }
 
-/* check the file for corruption
- * the file MUST be locked before calling this method
+/* check the given file descriptor for corruption
+ * no locking magic here, this function just does the checking of an opened file
  */
-int File::check(void)
+int File::check_fd(int fd)
 {
-#ifdef DEBUG
-	cerr << " Checking file " << this->directory->path() << this->fname << endl;
-#endif
-
-	int ret = 1;
-
-	if (this->has_error)
-		return 0; // No need to further check this
-
-	if (this->trylock() != EBUSY)
-		cout << "Program error:  file is not locked " << this->fname << endl;
-	
-	int fd;
-	// Open file
-again:
-	fd = open((directory->path() + fname).c_str(), O_RDONLY);
-	if (fd == -1) {
-		cerr << " Checking file " << this->directory->path() << this->fname;
-		perror(" : ");
-		EXIT(1);
-	}
+	int ret = 0;
 
 	// Do not keep the pages in memory, later checks then have to re-read it.
 	// Disadvantage is that we do not create memory pressure then, which is
@@ -272,32 +254,38 @@ again:
 	}
 	
 	// read and compare file
-	for(size = 0; size < fsize; size += BUF_SIZE) {
+	for(size = 0; size < this->fsize; size += BUF_SIZE) {
 		size_t offset = 0;
 		while(offset < BUF_SIZE) {
 			ssize_t len;
 			len = read(fd, &buff[offset], BUF_SIZE - offset);
 			if (len < 0) {
-				if(errno == EIO) {
-					cout << this->directory->path() << fname 
-						<< " : IO error A Lustre eviction?" << endl;
-					posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
-					close(fd);
-					goto again;
-				}
 				cerr << "Read from " << directory->path() 
-					  << fname << " failed";
-				perror(" : ");
-				EXIT(1);
+					<< fname << " failed: " 
+					<< strerror(errno) << endl;
+				ret = 1;
+				goto out;
 			}
+
+			if (len == 0) {
+				cerr << "File smaller than expected: " 
+					<< directory->path() << fname << endl;
+				ret = 0;
+				goto out;
+			}
+
 			offset += len;
+#if DEBUG > 3
+			cout << "Read " << len << "/" << this->fsize << endl;
+#endif
+
 		}
 
 		// If the filesystem was full, not the complete file was written
 		// and so the file might not have a size being a multiple of
 		// BUF_SIZE. So introduce a cmp size.
 		size_t cmpsize;
-		cmpsize = min(BUF_SIZE, fsize - size);
+		cmpsize = min(BUF_SIZE, this->fsize - size);
 		if (memcmp(bufm, buff, cmpsize) != 0) {
 			this->has_error = true;
 			cerr << "File corruption in " 
@@ -313,7 +301,7 @@ again:
 					        (long unsigned) size + ia);
 				}
 			}
-			// Do not return an error and abort writes, if we know
+			// Do not RETURN an error and abort writes, if we know
 			// this sync to disk of this file failed
 			if (!this->sync_failed) {
 				ret = 1;
@@ -326,15 +314,41 @@ again:
 	// on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 
-	close(fd);
-	
-	this->num_checks++;
-	ret = 0;
-
 out:
 	free(bufm);
 	free(buff);
-	return ret;
+	RETURN(ret);
+}
+
+/* check the file for corruption
+ * the file MUST be locked before calling this method
+ */
+int File::check(void)
+{
+#ifdef DEBUG
+	cerr << " Checking file " << this->directory->path() << this->fname << endl;
+#endif
+
+	if (this->has_error)
+		RETURN(0); // No need to further check this
+
+	if (this->trylock() != EBUSY)
+		cout << "Program error:  file is not locked " << this->fname << endl;
+	
+	int fd = open((directory->path() + fname).c_str(), O_RDONLY);
+	if (fd == -1) {
+		cerr << " Checking file " << this->directory->path() << this->fname;
+		perror(" : ");
+		EXIT(1);
+	}
+
+	int ret = this->check_fd(fd);
+
+	close(fd);
+	
+	this->num_checks++;
+
+	RETURN(ret);
 }
 
 File * File::get_next() const
@@ -344,7 +358,7 @@ File * File::get_next() const
 
 size_t File::get_fsize() const
 {
-	return fsize;
+	RETURN(this->fsize);
 }
 
 void File::lock(void)
@@ -375,6 +389,6 @@ int File::trylock(void)
 		perror(" : ");
 		EXIT(1);
 	}
-	return rc;
+	RETURN(rc);
 }
 

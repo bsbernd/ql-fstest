@@ -136,6 +136,6 @@ string Dir::path(void) const
 
 uint16_t Dir::get_num_files(void) const
 {
-	return num_files;
+	RETURN(num_files);
 }
 

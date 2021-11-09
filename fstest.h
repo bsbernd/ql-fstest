@@ -61,7 +61,29 @@ static int do_exit(const char* func, const char *file, unsigned line, int code)
 	exit(code);
 }
 
+#if DEBUG > 2
+static inline void print_return(const char* func, const char *file, unsigned line, int value=0)
+{
+	fprintf(stderr, "%s() %s:%d return %d\n", func, file, line, value);
+}
+#else
+#define print_return(func, file, line, value)
+#endif
+
 #define EXIT(x) do_exit(__func__, __FILE__, __LINE__, x)
+
+#define RETURN(x)  	\
+	do {		\
+		print_return(__func__, __FILE__, __LINE__, (int) x); 	\
+		return x;						\
+	} while (0)
+
+// return void
+#define RETURNV  	\
+	do {		\
+		print_return(__func__, __FILE__, __LINE__, 0); 	\
+		return;						\
+	} while (0)
 
 static const uint64_t MEGA = 1024 * 1024;
 static const uint64_t GIGA = 1024 * 1024 * 1024;

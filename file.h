@@ -77,6 +77,7 @@ public:
 	
 	void link(File *file);
 	void unlink(void);
+	int check_fd(int fd);
 	int check(void);
 	void lock(void);
 	void unlock(void);

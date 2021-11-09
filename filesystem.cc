@@ -38,6 +38,8 @@ using namespace std;
 /* filesystem constructor */
 Filesystem::Filesystem(string dir, double percent)
 {
+	this->last_read_index = 0;
+
 	this->goal_percent = percent;
 	pthread_mutex_init(&this->mutex, NULL);
 	this->error_detected = false;
@@ -143,7 +145,7 @@ void Filesystem::free_space(size_t fsize)
 		int nfiles = files.size();
 		if (nfiles < 1) {
 			this->unlock();
-			return; // no files left to delete
+			RETURNV; // no files left to delete
 		}
 		int num = random() % nfiles;
 		
@@ -269,6 +271,8 @@ void Filesystem::write(void)
 				sleep(1);
 		}
 	}
+
+	cout << "Error detected, leaving write thread!" << endl;
 }
 
 /* Read from the beginning to the end, if end is reached
@@ -391,7 +395,7 @@ int Filesystem::trylock(void)
 		perror(": ");
 		EXIT(1);
 	}
-	return rc;
+	RETURN(rc);
 }
 
 

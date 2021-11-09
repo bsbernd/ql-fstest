@@ -178,5 +178,5 @@ int main(int argc, char * const argv[])
 	start_threads(dir, percent);
 
 	cout << "Done.\n";
-	return 0;
+	RETURN(0);
 }
