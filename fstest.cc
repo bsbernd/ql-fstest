@@ -25,6 +25,7 @@
  *
  ************************************************************************/
 #include <execinfo.h>
+#include <random>
 
 #include "fstest.h"
 #include "config.h"

@@ -30,7 +30,7 @@
 #include "file.h"
 #include "config.h"
 
-const size_t BUF_SIZE = 1024*1024; // Must be power of 2
+const uint64_t BUF_SIZE = 1024*1024; // Must be power of 2
 
 #define RANDOM_SIZE 4096
 
@@ -140,6 +140,8 @@ void File::fwrite(void)
 
 			size_t remaining_buf_len = BUF_SIZE - buf_offset;
 			size_t write_len = remaining_buf_len;
+
+			/* XXX needs random IO sizes */
 
 			if (file_offset + write_len > this->fsize) {
 				write_len = this->fsize - file_offset;
@@ -265,6 +267,65 @@ void File::unlink()
 	prev = next = NULL;
 }
 
+int64_t File::read_fd(int fd, char *buf, uint64_t &off)
+{
+	uint64_t buff_off = 0; /* offset within the buffer */
+	int64_t ret;
+	bool eof = false;
+
+	while (buff_off < BUF_SIZE && !eof) {
+		ssize_t rc;
+
+		/* XXX Needs random IO sizes */
+
+		rc = pread(fd, &buf[buff_off], BUF_SIZE - buff_off, off);
+		if (rc < 0) {
+			cerr << "Read from " << directory->path()
+				<< fname << " failed: "
+				<< strerror(errno) << endl;
+			ret = rc;
+			goto out;
+		}
+
+		off += rc;
+		buff_off += rc;
+
+		if (rc == 0) {
+			eof = true;
+			if (off < this->fsize) {
+				cerr << "File smaller than expected: " <<
+					directory->path() << fname <<
+					" expected: " << this->fsize <<
+					" got: " << off << endl;
+				ret = -1; /* fail */
+				goto out;
+			}
+
+			ret = buff_off;
+		}
+
+		if (off > this->fsize) {
+			cerr << "File larger than expected: " <<
+				directory->path() << fname 	<<
+				" expected: " << this->fsize	<<
+				" got: " << off <<endl;
+			ret = -1; /* fail */
+			goto out;
+		}
+	}
+
+	ret = buff_off;
+
+out:
+#if 0
+	cout 	<< directory->path() + fname
+		<< " " << "read-len: " << ret
+		<< " " << "new-off: " << off
+		<< " " << "File-Size: " << this->fsize << endl;
+#endif
+	return ret;
+}
+
 /* check the given file descriptor for corruption
  * no locking magic here, this function just does the checking of an opened file
  */
@@ -278,89 +339,56 @@ int File::check_fd(int fd)
 	posix_fadvise(fd, 0 ,0, POSIX_FADV_NOREUSE);
 
 	//Create buffer and fill with id
-	char *bufm = (char *)malloc(BUF_SIZE);
-	char *buff = (char *)malloc(BUF_SIZE);
-	if (!bufm or !buff) {
+	char *checksum_buf = (char *)malloc(BUF_SIZE);
+	char *file_buf = (char *)malloc(BUF_SIZE);
+	if (!checksum_buf or !file_buf) {
 		cerr << "Malloc failed" << endl;
 		EXIT(1);
 	}
 
-	size_t size = sizeof(this->id.checksum);
-	
-	memcpy(&bufm[0], this->id.checksum, size);
-	while(size < BUF_SIZE) {
-		memcpy(&bufm[size], &bufm[0], size);
-		size *= 2;
+	uint64_t off = 0;
+	while(off < BUF_SIZE) {
+		const size_t sz = sizeof(this->id.checksum);
+		memcpy(&checksum_buf[off], this->id.checksum, sz);
+		off += sz;
 	}
 	
-	// read and compare file
-	uint64_t file_read_size = 0;
-	for(size = 0; size < this->fsize; size += BUF_SIZE) {
-		size_t buf_offset = 0;
-		while (buf_offset < BUF_SIZE) {
-			ssize_t read_len;
-			read_len = read(fd, &buff[buf_offset], BUF_SIZE - buf_offset);
-			if (read_len < 0) {
-				cerr << "Read from " << directory->path() 
-					<< fname << " failed: " 
-					<< strerror(errno) << endl;
-				ret = 1;
+	// read and compare file, try to read more to see if the sile size matches
+	off = 0;
+	bool eof = false;
+	while (off < this->fsize || eof) {
+		int64_t res = this->read_fd(fd, file_buf, off);
+		if (res <= 0) {
+			if (res < 0) {
+				ret = res;
 				goto out;
 			}
 
-			file_read_size += read_len;
-
-			if (read_len == 0) {
-				if (file_read_size < this->fsize) {
-					cerr << "File smaller than expected: " <<
-						directory->path() << fname 	<<
-						" expected: " << this->fsize	<<
-						" got: " << file_read_size <<endl;
-					ret = 1; /* switch to ro mode */
-				} else
-					ret = 0;
-				goto out;
+			if (res == 0) {
+				eof = true;
+				/* no need to compare again, nothing new */
+				break;
 			}
-
-			if (file_read_size > this->fsize) {
-				if (file_read_size < this->fsize)
-					cerr << "File larger than expected: " <<
-						directory->path() << fname 	<<
-						" expected: " << this->fsize	<<
-						" got: " << file_read_size <<endl;
-				ret = 0;
-				goto out;
-			}
-
-
-			buf_offset += read_len;
-#if 0
-			cout << "Read: " << read_len 		<< " " <<
-				"Buf-Offset: "    << buf_offset << " " <<
-				"File-readsize: " << file_read_size << " " <<
-				"File-Size: " << this->fsize << endl;
-#endif
-
 		}
 
 		// If the filesystem was full, not the complete file was written
 		// and so the file might not have a size being a multiple of
 		// BUF_SIZE. So introduce a cmp size.
 		size_t cmpsize;
-		cmpsize = min(BUF_SIZE, this->fsize - size);
-		if (memcmp(bufm, buff, cmpsize) != 0) {
+		cmpsize = min(BUF_SIZE, this->fsize - off);
+		if (memcmp(checksum_buf, file_buf, cmpsize) != 0) {
 			this->has_error = true;
 			cerr << "File corruption in " 
 				<< directory->path() << this->fname
 				<< " (create time: " << this->create_time << ")"
-			        << " around " << size << " [pattern = "
+			        << " around " << off << " [pattern = "
 			        << std::hex << id.value << std::dec << "]" << endl;
 			cerr << "After n-checks: " <<  this->num_checks << endl;
 			for (unsigned ia = 0; ia < BUF_SIZE; ia++) {
-				if (memcmp(bufm + ia, buff + ia, 1) != 0) {
+				if (memcmp(checksum_buf + ia, file_buf + ia, 1) != 0) {
 					fprintf(stderr, "Expected: %x, got: %x (pos = %lu)\n",
-					        (unsigned char) bufm[ia], (unsigned char) buff[ia],
-					        (long unsigned) size + ia);
+					        (unsigned char) checksum_buf[ia], (unsigned char) file_buf[ia],
+					        (long unsigned) off + ia);
 				}
 			}
 			// Do not RETURN an error and abort writes, if we know
@@ -377,8 +405,8 @@ out:
 	// on later reads
 	posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
 
-	free(bufm);
-	free(buff);
+	free(checksum_buf);
+	free(file_buf);
 	RETURN(ret);
 }
 

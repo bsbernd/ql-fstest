@@ -68,6 +68,8 @@ private:
 	bool has_error;
 	bool in_delete; // the write thread is going to delete it, the read thread shall ignore it
 
+	int read_fd(int fd, char *buf, uint64_t &off);
+
 public:
 	char fname[9]; // file name
 	File(Dir *dir);
