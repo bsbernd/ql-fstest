@@ -76,6 +76,7 @@ public:
 
 	~File(void);
 
+	bool set_direct_io_flag(int &open_flags);
 	void fwrite(void);
 	void delete_all(void);
 	

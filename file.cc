@@ -26,6 +26,8 @@
  *
  ************************************************************************/
 
+#include <sys/random.h>
+
 #include "fstest.h"
 #include "file.h"
 #include "config.h"
@@ -92,6 +94,28 @@ retry:
 
 }
 
+/**
+ * Randomly set O_DIRECT if enabled
+ */
+bool File::set_direct_io_flag(int &open_flags)
+{
+	bool is_o_direct = false;
+
+	if (get_global_cfg()->get_direct_io()) {
+		uint8_t random;
+		ssize_t rc = getrandom(&random, sizeof(random), GRND_NONBLOCK);
+		if (rc < 0)
+			random = 0;
+
+		if (random & 1) {
+			open_flags |= O_DIRECT;
+			is_o_direct = true;
+		}
+	}
+
+	return is_o_direct;
+}
+
 /* Write a file here 
  * file needs to be locked already 
  */
@@ -101,16 +125,20 @@ void File::fwrite(void)
 	int rc;
 	bool immediate_check = get_global_cfg()->get_immediate_check();
 	string path = directory->path();
+	time_t rawtime;
+	time(&rawtime);
 
-	fd = open((path + this->fname).c_str(), O_RDWR);
+	int open_flags = O_RDWR;
+	bool is_o_direct = set_direct_io_flag(open_flags);
+
+
+	fd = open((path + this->fname).c_str(), open_flags);
 	if (fd == -1) {
-		std::cerr << "Writing file " << path << fname;
+		std::cerr << "Failed to open " << path << fname << "o-direct=" << is_o_direct;
 		perror(" : ");
 		EXIT(1);
 	}
 
-	time_t rawtime;
-	time(&rawtime);
 	this->create_time = string(ctime_r(&rawtime, this->time_buf));
 
 	string &tmp =  this->create_time;
@@ -156,9 +184,9 @@ void File::fwrite(void)
 						<< "probably a race with another thread" << endl;
 					goto out;
 				}
-				cerr << "Write to " << path << fname << " failed";
-				perror(" : ");
-				EXIT(1);
+				cerr << path << fname << " write failed "
+					<< "size: " << write_len << endl;
+				goto out_err;
 			}
 
 			buf_offset  += written_len;
@@ -202,7 +230,13 @@ out:
 		this->sync_failed = true;
 	}
 	free(buf);
+	return;
 
+out_err:
+	perror(" : ");
+	cerr << "Failed to write to " + path + this->fname << " o-direct=" <<
+	         is_o_direct << endl;
+	EXIT(EXIT_FAILURE);
 }
 
 
@@ -427,7 +461,11 @@ int File::check(void)
 	if (this->trylock() != EBUSY)
 		cout << "Program error:  file is not locked " << this->fname << endl;
 	
-	int fd = open((directory->path() + fname).c_str(), O_RDONLY);
+	int open_flags = O_RDONLY;
+
+	bool is_o_direct = this->set_direct_io_flag(open_flags);
+
+	int fd = open((directory->path() + fname).c_str(), open_flags);
 	if (fd == -1) {
 		cerr << " Checking file " << this->directory->path() << this->fname;
 		perror(" : ");
@@ -435,6 +473,9 @@ int File::check(void)
 	}
 
 	int ret = this->check_fd(fd);
+	if (ret)
+		cerr << "Check for " + directory->path() + fname  + " failed, "
+		     << "o-direct=" << is_o_direct << endl;
 
 	close(fd);
 	

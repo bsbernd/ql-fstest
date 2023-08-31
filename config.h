@@ -45,6 +45,7 @@ public:
 		this->max_size_bits = DEFAULT_MAX_SIZE_BITS;
 		this->error_stop = false;
 		this->max_files = QL_FSTEST_DEFAULT_NUM_FILES;
+		this->direct_io = false;
 	}
 
 private:
@@ -56,6 +57,7 @@ private:
 	size_t max_size_bits;
 	size_t max_files;
 	bool error_stop; // stop on first error
+	bool direct_io;
 
 public:
 	void set_usage(size_t value)
@@ -152,6 +154,16 @@ public:
 	bool get_error_immediate_stop()
 	{
 		return this->error_stop;
+	}
+
+	void set_direct_io(void)
+	{
+		this->direct_io = true;
+	}
+
+	bool get_direct_io(void)
+	{
+		return this->direct_io;
 	}
 
 };

@@ -12,6 +12,7 @@ theusage()
 run-ql-fstest.sh [options ] -d <targetdir>
 options:
 -d <target-dir>         Dir to run ql-fstest in
+-D                      random direct IO
 -e                      Stop on error - fail immediately
 -n <num_processes>      Number of processes to start, defaults to ${nproc}
 -p <fill-level>         File system fill level, ql-fstest will write data up
@@ -27,10 +28,12 @@ opts=""
 
 targetdir=""
 
-while getopts "d:en:p:t:h" opt; do
+while getopts "d:Den:p:t:h" opt; do
     case $opt in
         d)
             targetdir=$OPTARG
+            ;;
+        D) opts="$opts --directIO"
             ;;
         e)
             opts="$opts --error-stop"

@@ -77,7 +77,10 @@ void usage(ostream &out)
 	out << " --min-bits             - min file size bits 2^n  [20] (1MiB)." << endl;
 	out << " --max-bits             - max file size bits 2^n. [30] (1GiB)." << endl;
 	out << " --error-stop           - stop on first error instead of further" << endl;
+	out << " --error-stop           - stop on first error instead of further" << endl;
 	out << "                          (and endless) checking for more corruptions." << endl;
+	out << "--directIO              - enable direct IO (randomly)." << endl;
+	out << "                          might not work with all file systems due to unaligned IO" << endl;
 	out << endl;
 
 }
@@ -153,6 +156,7 @@ int main(int argc, char * const argv[])
 		{ "min-bits" ,  1, NULL,  1  },
 		{ "max-bits" ,  1, NULL,  2  },
 		{ "max-files",  1, NULL, 'f' },
+		{ "directIO",   0, NULL, 'd'},
 		{ NULL       ,  0, NULL,  0  }
 	};
 	int longindex = 0;
@@ -175,6 +179,9 @@ int main(int argc, char * const argv[])
 			break;
 		case 'f':
 			global_cfg.set_max_files(atoi(optarg) );
+			break;
+		case 'd':
+			global_cfg.set_direct_io();
 			break;
 		case 'p':
 			global_cfg.set_usage(atoi(optarg) );
