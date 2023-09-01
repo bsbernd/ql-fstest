@@ -1,5 +1,5 @@
 FLAGS        = -rdynamic -O2 -W -Wall -ggdb3  -DFORTIFY_SOURCE=2 #-DDEBUG=1
-FFLAGS_DEBUG = -rdynamic -O0 -W -Wall -ggdb3 -DFORTIFY_SOURCE=2 -DDEBUG=1
+FFLAGS_DEBUG = -rdynamic -O0 -W -Wall -ggdb3 -DFORTIFY_SOURCE=2 -fsanitize=address -fsanitize=undefined #-DDEBUG=1
 CXX ?= g++
 
 # LDFLAGS=-m32 -static -D_FILE_OFFSET_BITS=64
@@ -13,7 +13,7 @@ fstest: $(FILES)
 	$(CXX) -o $@ $(FILES) $(FLAGS) $(LDFLAGS)
 
 debug: $(FILES)
-	$(CXX) $(FFLAGS_DEBUG) -o fstest $(FILES) $(FFLAGS_DEBUG) $(LDFLAGS)
+	$(CXX) $(FFLAGS_DEBUG) -o fstest $(FILES) $(LDFLAGS)
 
 fstest.o: fstest.cc
 

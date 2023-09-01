@@ -52,7 +52,7 @@ class File
 private:
 	Dir *directory;
 	File *prev, *next; // only per directory, not globally
-	size_t fsize; // the file size 
+	uint64_t fsize; // the file size
 
 	union {
 		uint32_t value; // a random integer will be transformed into
@@ -68,7 +68,7 @@ private:
 	bool has_error;
 	bool in_delete; // the write thread is going to delete it, the read thread shall ignore it
 
-	int read_fd(int fd, char *buf, uint64_t &off);
+	int64_t read_fd(int fd, char *buf, uint64_t &off);
 
 public:
 	char fname[9]; // file name

@@ -352,7 +352,7 @@ void Filesystem::read_main(void)
 start_again:
 	this->lock();
 	// wait until the 2nd file is being written
-	while (this->files.size() < 2) {
+	while (this->files.size() < 2 && !this->error_detected) {
 		this->unlock();
 		sched_yield();
 		check_terminate_and_sleep(1);
@@ -406,7 +406,8 @@ newindex:
 		index++;
 
 		if (this->was_full == false) {
-			while (index + 20 >= this->files.size()) {
+			while (index + 20 >= this->files.size() &&
+				!this->error_detected) {
 				// we want writes to be slightly ahead of reads
 				// due to the page cache
 
@@ -432,10 +433,9 @@ newindex:
 
 		// double check, now that we have locked it
 		if (index >= this->files.size()) {
-			// the write_main thread deleted our file...
 			this->unlock();
-			index--;
-			goto newindex;
+			index = 0;
+			goto start_again;
 		}
 
 		File *tmp;
