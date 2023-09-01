@@ -28,17 +28,5 @@ As the writer thread now does reads and writes itself, the reader quickly catche
 and in order to give it some work, the reader thread will restart to read files from 
 index 0 once it has read the last file written before the filesystem was full.
 
-The program will run forever, unless stopped by the user.
-
-
-Acknowledgement:
-This program was originally written by Goswin von Brederlow for 
-Q-Leap Networks GmbH. 
-Multithreaded code, cleanup, posix_fadvise have been added by Bernd Schubert
-for DataDirect Networks.
-
-The program has proven to reliably detect data corruption in a number of cases
-(for example bad hard drives in cheap raid arrays, which do not check for
-data-integrity).
-
-Current Maintainer: Bernd Schubert <bernd.schubert@fastmail.fm>
+Note: In error case it continues to check remaining files by default and
+does not terminate.

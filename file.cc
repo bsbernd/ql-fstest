@@ -298,6 +298,7 @@ int64_t File::read_fd(int fd, char *buf, uint64_t &off)
 					" expected: " << this->fsize <<
 					" got: " << off << endl;
 				ret = -1; /* fail */
+				this->has_error = true;
 				goto out;
 			}
 
@@ -310,6 +311,7 @@ int64_t File::read_fd(int fd, char *buf, uint64_t &off)
 				" expected: " << this->fsize	<<
 				" got: " << off <<endl;
 			ret = -1; /* fail */
+			this->has_error = true;
 			goto out;
 		}
 	}
