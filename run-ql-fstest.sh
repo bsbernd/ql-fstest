@@ -20,6 +20,7 @@ options:
                         defaults to 90
 -t <max-run-time>       How log to run (default: unlimited)
 -h                      This help
+-l <log-dir>            Dir to write log files to
 EOF
     exit 1
 }
@@ -28,7 +29,7 @@ opts=""
 
 targetdir=""
 
-while getopts "d:Den:p:t:h" opt; do
+while getopts "d:Den:p:t:hl:" opt; do
     case $opt in
         d)
             targetdir=$OPTARG
@@ -50,6 +51,8 @@ while getopts "d:Den:p:t:h" opt; do
         h)
             theusage
             ;;
+        l) logdir="${OPTARG}"
+            ;;
     esac
 done
 
@@ -59,6 +62,10 @@ if [ -z "${targetdir}" ]; then
     echo "Missing required argument: -d <targetdir"
     echo
     theusage
+fi
+
+if [ -z "${logdir}" ]; then
+    logdir="${targetdir}";
 fi
 
 mkdir -p ${targetdir}
@@ -79,7 +86,7 @@ fi
 #tmp script, run from screen
 tmprun="$targetdir/tmp-ql-fstest-run-$$.sh"
 cat <<EOF >${tmprun}
-${CWD}/fstest $opts $targetdir 2>${targetdir}/fstest-\$\$.err | tee ${targetdir}/fstest-\$\$.log
+unbuffer ${CWD}/fstest $opts $targetdir 2>${logdir}/fstest-\$\$.err | tee ${logdir}/fstest-\$\$.log
 EOF
 chmod +x ${tmprun}
 
