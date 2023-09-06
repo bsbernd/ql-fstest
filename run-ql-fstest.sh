@@ -69,6 +69,7 @@ if [ -z "${logdir}" ]; then
 fi
 
 mkdir -p ${targetdir}
+mkdir -p ${logdir}
 
 dir=`dirname $0`
 cd $dir
@@ -86,7 +87,7 @@ fi
 #tmp script, run from screen
 tmprun="$targetdir/tmp-ql-fstest-run-$$.sh"
 cat <<EOF >${tmprun}
-unbuffer ${CWD}/fstest $opts $targetdir 2>${logdir}/fstest-\$\$.err | tee ${logdir}/fstest-\$\$.log
+${CWD}/fstest $opts $targetdir 2>${logdir}/fstest-\$\$.err | tee ${logdir}/fstest-\$\$.log
 EOF
 chmod +x ${tmprun}
 
