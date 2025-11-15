@@ -77,10 +77,14 @@ void usage(ostream &out)
 	out << " --min-bits             - min file size bits 2^n  [20] (1MiB)." << endl;
 	out << " --max-bits             - max file size bits 2^n. [30] (1GiB)." << endl;
 	out << " --error-stop           - stop on first error instead of further" << endl;
-	out << " --error-stop           - stop on first error instead of further" << endl;
 	out << "                          (and endless) checking for more corruptions." << endl;
 	out << "--directIO              - enable direct IO (randomly)." << endl;
-	out << "                          might not work with all file systems due to unaligned IO" << endl;
+	out << "                          might not work with all file systems "
+	    << "due to unaligned IO"
+	    << endl;
+	out << "--no-check            - do not check files for correctness.\n";
+	out << "--keep-open           - keep files open after write.\n";
+	out << "--stop-when-max-files - stop when max files reached.\n";
 	out << endl;
 
 }
@@ -157,6 +161,9 @@ int main(int argc, char * const argv[])
 		{ "max-bits" ,  1, NULL,  2  },
 		{ "max-files",  1, NULL, 'f' },
 		{ "directIO",   0, NULL, 'd'},
+		{ "no-check" ,  0, NULL, 'n'},
+		{ "keep-open" ,  0, NULL, 'k'},
+		{ "stop-when-max-files" ,  0, NULL, 's'},
 		{ NULL       ,  0, NULL,  0  }
 	};
 	int longindex = 0;
@@ -182,6 +189,15 @@ int main(int argc, char * const argv[])
 			break;
 		case 'd':
 			global_cfg.set_direct_io();
+			break;
+		case 'n':
+			global_cfg.set_no_check();
+			break;
+		case 'k':
+			global_cfg.set_keep_open();
+			break;
+		case 's':
+			global_cfg.set_stop_when_max_files();
 			break;
 		case 'p':
 			global_cfg.set_usage(atoi(optarg) );

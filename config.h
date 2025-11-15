@@ -35,29 +35,21 @@
 
 class Config_fstest {
 public:
-	Config_fstest(void)
-	{
-		this->usage_percent = MAX_USAGE_PERCENT;
-		this->timeout       = TIMEOUT;
-		this->immediate_check = false;
-		this->testdir = "";
-		this->min_size_bits = DEFAULT_MIN_SIZE_BITS;
-		this->max_size_bits = DEFAULT_MAX_SIZE_BITS;
-		this->error_stop = false;
-		this->max_files = QL_FSTEST_DEFAULT_NUM_FILES;
-		this->direct_io = false;
-	}
+	Config_fstest(void) {}
 
 private:
-	size_t usage_percent; // max fill level
-	ssize_t timeout; // in seconds
-	bool immediate_check;
+	size_t usage_percent {MAX_USAGE_PERCENT} ; // max fill level
+	ssize_t timeout {TIMEOUT};
+	bool immediate_check {false};
 	string testdir;
-	size_t min_size_bits;
-	size_t max_size_bits;
-	size_t max_files;
-	bool error_stop; // stop on first error
-	bool direct_io;
+	size_t min_size_bits {DEFAULT_MIN_SIZE_BITS};
+	size_t max_size_bits {DEFAULT_MAX_SIZE_BITS};
+	size_t max_files {QL_FSTEST_DEFAULT_NUM_FILES};
+	bool error_stop {false};
+	bool direct_io {false};
+	bool no_check {false}; // do not check writes
+	bool keep_open{ false }; // keep files open after write
+	bool stop_when_max_files{ false }; // stop when max files reached
 
 public:
 	void set_usage(size_t value)
@@ -164,6 +156,36 @@ public:
 	bool get_direct_io(void)
 	{
 		return this->direct_io;
+	}
+
+	void set_no_check(void)
+	{
+		this->no_check = true;
+	}
+
+	bool get_no_check(void)
+	{
+		return this->no_check;
+	}
+
+	void set_keep_open(void)
+	{
+		this->keep_open = true;
+	}
+
+	bool get_keep_open(void)
+	{
+		return this->keep_open;
+	}
+
+	void set_stop_when_max_files(void)
+	{
+		this->stop_when_max_files = true;
+	}
+
+	bool get_stop_when_max_files(void)
+	{
+		return this->stop_when_max_files;
 	}
 
 };

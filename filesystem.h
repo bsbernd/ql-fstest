@@ -25,7 +25,11 @@
  *
  ************************************************************************/
 
+#include "dir.h"
+#include "file.h"
 #include <pthread.h>
+#include <atomic>
+#include <vector>
 
 #ifndef __FILESYSTEM_H__
 #define __FILESYSTEM_H__
@@ -57,8 +61,8 @@ private:
 	void update_stats(bool size_only);
 	void free_space(size_t fsize);
 
-	volatile bool error_detected;
-	volatile bool terminated;
+	std::atomic<bool> error_detected;
+	std::atomic<bool> terminated;
 
 	// protect file and directory addition/removal and stats
 	pthread_mutex_t mutex;
@@ -70,10 +74,10 @@ public:
 	void read_main(void);
 
 	// Global options
-	vector<Dir*> all_dirs;
-	vector<Dir*> active_dirs;
-	vector<File*> files;
-	vector<File*>::iterator file_iter;
+	std::vector<Dir*> all_dirs;
+	std::vector<Dir*> active_dirs;
+	std::vector<File*> files;
+	std::vector<File*>::iterator file_iter;
 
 	void lock(void);
 	void unlock(void);

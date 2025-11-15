@@ -28,6 +28,7 @@
 #ifndef __FILE_H__
 #define __FILE_H__
 
+#include "dir.h"
 #include <unistd.h>
 #include <getopt.h>
 #include <stdlib.h>
@@ -69,6 +70,8 @@ private:
 	bool in_delete; // the write thread is going to delete it, the read thread shall ignore it
 
 	int64_t read_fd(int fd, char *buf, uint64_t &off);
+
+        int fd_write{-1}; // file descriptor for write
 
 public:
 	char fname[9]; // file name

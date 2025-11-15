@@ -147,10 +147,10 @@ void Filesystem::free_space(size_t fsize)
 
 	int retry_count = 0;
 
-	while ((this->fsused + (uint64_t) fsize > this->fs_use_goal
-		    && this->files.size() > QL_FSTEST_MIN_NUM_FILES) ||
-		  this->files.size() > this->max_files)
-	{
+	while ((this->fsused + (uint64_t)fsize > this->fs_use_goal &&
+		this->files.size() > QL_FSTEST_MIN_NUM_FILES) ||
+	       this->files.size() >= this->max_files) {
+
 		retry_count++;
 
 		if (!this->was_full) {
@@ -247,6 +247,13 @@ void Filesystem::write_main(void)
 	while((this->error_detected == false) && (this->terminated == false)) {
 		// cout << "all_dirs: " << all_dirs.size() << endl;
 		// cout << "active_dirs: " << active_dirs.size() << endl;
+
+		if (get_global_cfg()->get_stop_when_max_files() &&
+		    this->files.size() >= this->max_files) {
+			cout << "Max files reached, stopping!" << endl;
+			this->terminated = true;
+			break;
+		}
 
 		// Pick a random directory
 		unsigned dir_idx = random() % active_dirs.size();

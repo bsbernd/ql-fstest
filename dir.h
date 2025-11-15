@@ -28,7 +28,10 @@
 #ifndef __DIR_H__
 #define __DIR_H__
 
-#include "fstest.h"
+#include <string>
+#include <cstdint>
+
+using std::string;
 
 class Filesystem;
 class File;

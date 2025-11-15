@@ -222,12 +222,16 @@ out:
 		this->check_fd(fd); // immediately check the file now, TODO: make this an option
 	}
 
-	rc = close(fd);
-	if (rc) {
-		cerr << "close() " << path << this->fname 
-			<< " failed: (rc = " << rc << "): "
-			<< strerror(errno) << endl;
-		this->sync_failed = true;
+	if (get_global_cfg()->get_keep_open()) {
+		this->fd_write = fd;
+	} else {
+		rc = close(fd);
+		if (rc) {
+		cerr << "close() " << path << this->fname
+		     << " failed: (rc = " << rc << "): "
+		     << strerror(errno) << endl;
+		     this->sync_failed = true;
+		}
 	}
 	free(buf);
 	return;
@@ -270,7 +274,12 @@ File::~File(void)
 
 	free(this->time_buf);
 
-	this->unlock();
+        this->unlock();
+
+        if (this->fd_write != -1) {
+                close(this->fd_write);
+        }
+
 	pthread_mutex_destroy(&this->mutex);
 }
 
@@ -454,6 +463,9 @@ int File::check(void)
 #ifdef DEBUG
 	cerr << " Checking file " << this->directory->path() << this->fname << endl;
 #endif
+
+	if (get_global_cfg()->get_no_check())
+		RETURN(0);
 
 	if (this->has_error)
 		RETURN(0); // No need to further check this
